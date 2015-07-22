@@ -44,7 +44,7 @@ class Level01():
         self.gameEnd = "GET_artifact"
 
         # Set up all the little details
-        self.initTorchParticles()
+        #self.initTorchParticles()
         self.initSwitches()
         self.initDoors()
         self.initChests()

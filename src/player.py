@@ -1,6 +1,10 @@
 from direct.actor.Actor import Actor
 from direct.fsm.FSM import FSM
 from direct.showbase.DirectObject import DirectObject
+from direct.interval.IntervalGlobal import Sequence
+from direct.directutil import Mopath
+from direct.interval.MopathInterval import *
+from direct.interval.LerpInterval import LerpPosInterval
 from panda3d.core import (
     Vec3,
     NodePath,
@@ -141,6 +145,12 @@ class Player(FSM, DirectObject):
 
     def jump(self, extraArg):
         print "JUMPING", extraArg
+        myMP = Mopath.Mopath()
+        myMP.loadFile("../assets/jump_arc")
+
+        myInterval = MopathInterval(myMP, self.player, name = "name")
+        myInterval.start()
+
 
     def move(self, task):
         dt = globalClock.getDt()

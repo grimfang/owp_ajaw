@@ -29,7 +29,7 @@ class Main(ShowBase, FSM):
         ShowBase.__init__(self)
         FSM.__init__(self, "FSM-Game")
 
-        self.enableParticles()
+        #self.enableParticles()
         self.disableMouse()
         self.setBackgroundColor(0, 0, 0)
         self.camLens.setFov(75)
