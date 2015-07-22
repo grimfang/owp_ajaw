@@ -5,13 +5,14 @@ from panda3d.core import (
     Vec3,
     NodePath,
     PandaNode,
-    CollisionHandlerPusher,
     CollisionSphere,
     CollisionRay,
     CollisionSegment,
     CollisionNode,
     CollisionHandlerFloor,
-    CollisionHandlerEvent)
+    CollisionHandlerEvent,
+    PointLight)
+from direct.interval.LerpInterval import LerpPosInterval
 
 class Player(FSM, DirectObject):
     NormalMode = "Normal"
@@ -73,9 +74,8 @@ class Player(FSM, DirectObject):
         self.playerSphere = CollisionSphere(0, 0, 0.8, 0.7)
         self.playerCollision = self.player.attachNewNode(CollisionNode("playerCollision"))
         self.playerCollision.node().addSolid(self.playerSphere)
-        self.pusher = CollisionHandlerPusher()
-        self.pusher.addCollider(self.playerCollision, self.player)
-        base.cTrav.addCollider(self.playerCollision, self.pusher)
+        base.pusher.addCollider(self.playerCollision, self.player)
+        base.cTrav.addCollider(self.playerCollision, base.pusher)
         # The foot collision checks
         self.footRay = CollisionRay(0, 0, 0, 0, 0, -1)
         self.playerFootRay = self.player.attachNewNode(CollisionNode("playerFootCollision"))
@@ -84,7 +84,7 @@ class Player(FSM, DirectObject):
         self.playerFootRay.show()
         self.lifter = CollisionHandlerFloor()
         self.lifter.addCollider(self.playerFootRay, self.player)
-        self.lifter.setMaxVelocity(1.0)
+        self.lifter.setMaxVelocity(0.1)
         base.cTrav.addCollider(self.playerFootRay, self.lifter)
         # a collision segment slightly in front of the player to check for jump ledges
         self.jumpCheckSegment = CollisionSegment(0, 0.1, 0, 0, 0.1, -1)
@@ -122,6 +122,8 @@ class Player(FSM, DirectObject):
         self.accept("home-up", self.setKey, ["center",0])
         self.acceptOnce("+", self.zoom, [True])
         self.acceptOnce("-", self.zoom, [False])
+        self.acceptOnce("enter", self.request, ["Activate"])
+        self.acceptOnce("e", self.request, ["Activate"])
 
         self.accept("playerJumpCollision-out", self.jump)
 
@@ -144,6 +146,11 @@ class Player(FSM, DirectObject):
 
     def move(self, task):
         dt = globalClock.getDt()
+
+        ac = self.player.getAnimControl("Activate")
+        if ac.isPlaying():
+            return task.cont
+
         if self.mode == Player.NormalMode:
             self.__normalMove(dt)
         else:
@@ -293,7 +300,11 @@ class Player(FSM, DirectObject):
         self.player.loop("Run")
 
     def enterActivate(self):
+        self.player.setPlayRate(2, "Activate")
         self.player.play("Activate")
+        base.messenger.send("Player_Activate")
+        self.acceptOnce("enter", self.request, ["Activate"])
+        self.acceptOnce("e", self.request, ["Activate"])
 
     def enterDeath(self):
         self.player.play("Death")
