@@ -36,7 +36,6 @@ class MessageWriter(DirectObject):
         self.textfield.setShadow(0.005, 0.005)
         self.textfield.setShadowColor(0, 0, 0, 1)
         self.textfield.setWordwrap(base.a2dRight*2-0.4)
-        #self.textfield.setCardActual(-0.8,38.2,2.2,-5)
         self.textfield.setCardActual(
             -0.1, base.a2dRight*2-0.3,
             0.1, base.a2dBottom+0.5)
@@ -44,7 +43,6 @@ class MessageWriter(DirectObject):
         self.textfield.setFlattenFlags(TextNode.FF_none)
         self.textfield.setTextScale(0.06)
         self.textfieldNodePath = aspect2d.attachNewNode(self.textfield)
-        #self.textfieldNodePath.setScale(0.06)
         self.textfieldNodePath.setScale(1)
         self.textfieldNodePath.setPos(base.a2dLeft+0.2, 0, -0.4)
 

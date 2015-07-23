@@ -8796,7 +8796,7 @@
     }
   }
   <Group> Boulder_Door_collision {
-    <Collide> { Polyset descend }
+    <Collide> { Polyset descend level }
     <Transform> {
       <Matrix4> {
         1.0 0.0 0.0 0.0 

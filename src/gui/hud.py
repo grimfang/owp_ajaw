@@ -1,5 +1,6 @@
 from direct.gui.OnscreenImage import OnscreenImage
 from direct.gui.DirectLabel import DirectLabel
+from panda3d.core import TextNode
 
 class PlayerHUD():
     def __init__(self):
@@ -16,15 +17,28 @@ class PlayerHUD():
         self.heart2 = OnscreenImage(
             image = "HeartIcon.png",
             scale = heartscale,
-            pos = (.45, 0, -0.15))
+            pos = (0.45, 0, -0.15))
         self.heart2.setTransparency(True)
         self.heart2.reparentTo(base.a2dTopLeft)
         self.heart3 = OnscreenImage(
             image = "HeartIcon.png",
             scale = heartscale,
-            pos = (.7, 0, -0.15))
+            pos = (0.7, 0, -0.15))
         self.heart3.setTransparency(True)
         self.heart3.reparentTo(base.a2dTopLeft)
+
+        self.keys = DirectLabel(
+            text = "x0",
+            frameColor = (0, 0, 0, 0),
+            text_fg = (1, 1, 1, 1),
+            text_scale = 1.8,
+            text_pos = (1, -0.25, 0),
+            text_align = TextNode.ALeft,
+            image = "Keys.png",
+            pos = (0.2, 0, -0.4))
+        self.keys.setScale(0.085)
+        self.keys.setTransparency(True)
+        self.keys.reparentTo(base.a2dTopLeft)
 
         self.actionKey = DirectLabel(
             frameColor = (0, 0, 0, 0),
@@ -36,10 +50,14 @@ class PlayerHUD():
         self.actionKey.reparentTo(base.a2dBottomCenter)
         self.actionKey.hide()
 
+    def show(self):
+        self.keys.show()
+
     def hide(self):
         self.heart1.hide()
         self.heart2.hide()
         self.heart3.hide()
+        self.keys.hide()
         self.hideActionKey()
 
     def setHealthStatus(self, value):
@@ -58,3 +76,6 @@ class PlayerHUD():
 
     def hideActionKey(self):
         self.actionKey.hide()
+
+    def updateKeyCount(self, numKeys):
+        self.keys["text"] = "x%d" % numKeys

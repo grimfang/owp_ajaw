@@ -217,4 +217,7 @@ class Main(ShowBase, FSM):
         configfile.close()
 
 APP = Main()
+if __debug__:
+    import debug
+    debug.setupDebugHelp(APP)
 APP.run()

@@ -1,12 +1,11 @@
+import random
 from direct.actor.Actor import Actor
 from direct.fsm.FSM import FSM
 from direct.showbase.DirectObject import DirectObject
-from direct.interval.IntervalGlobal import Sequence
-from direct.directutil import Mopath
-from direct.interval.MopathInterval import *
-from direct.interval.LerpInterval import LerpPosInterval
+from direct.interval.ProjectileInterval import ProjectileInterval
 from panda3d.core import (
     Vec3,
+    Point3,
     NodePath,
     PandaNode,
     CollisionSphere,
@@ -15,8 +14,12 @@ from panda3d.core import (
     CollisionNode,
     CollisionHandlerFloor,
     CollisionHandlerEvent,
+    CollisionHandlerQueue,
     PointLight)
-from direct.interval.LerpInterval import LerpPosInterval
+from direct.interval.IntervalGlobal import Sequence
+from direct.interval.FunctionInterval import (
+    Wait,
+    Func)
 
 class Player(FSM, DirectObject):
     NormalMode = "Normal"
@@ -24,6 +27,7 @@ class Player(FSM, DirectObject):
 
     def __init__(self):
         FSM.__init__(self, "FSM-Player")
+        random.seed()
 
         #
         # PLAYER CONTROLS AND CAMERA
@@ -47,13 +51,13 @@ class Player(FSM, DirectObject):
         # this variable will set an offset to the node the cam is attached to
         # and the point the camera looks at. By default the camera will look
         # directly at the node it is attached to
-        self.lookatOffset = Vec3(0, 0, 1)
+        self.lookatOffset = Vec3(0, 0, 1.5)
         # the initial cam distance
-        self.fightCamDistance = 7.0
+        self.fightCamDistance = 2.0
         # the next two vars will set the min and max distance the cam can have
         # to the node it is attached to
-        self.maxCamDistance = 3.0
-        self.minCamDistance = 0.5
+        self.maxCamDistance = 4.0
+        self.minCamDistance = 0.8
         # the initial cam distance
         self.camDistance = (self.maxCamDistance - self.minCamDistance) / 2.0 + self.minCamDistance
         # the next two vars set the min and max distance on the Z-Axis to the
@@ -71,6 +75,22 @@ class Player(FSM, DirectObject):
         # track the camera on it
         self.camFloater = NodePath(PandaNode("playerCamFloater"))
         self.camFloater.reparentTo(render)
+        # Interval for the jump animation
+        self.jumpInterval = None
+
+        #
+        # WEAPONS AND ACCESSORIES
+        #
+        self.RightHandAttach = self.player.exposeJoint(None, "modelRoot", "HandAttach_R")
+        self.spear = loader.loadModel("Spear")
+        self.spear.setP(90)
+        self.spear.setR(180)
+        self.spear.reparentTo(self.RightHandAttach)
+        self.LeftHandAttach = self.player.exposeJoint(None, "modelRoot", "HandAttach_L")
+        self.shield = loader.loadModel("Shield")
+        self.shield.setZ(0.05)
+        self.shield.setH(-90)
+        self.shield.reparentTo(self.LeftHandAttach)
 
         #
         # PLAYER COLLISION DETECTION AND PHYSICS
@@ -85,24 +105,47 @@ class Player(FSM, DirectObject):
         self.playerFootRay = self.player.attachNewNode(CollisionNode("playerFootCollision"))
         self.playerFootRay.node().addSolid(self.footRay)
         self.playerFootRay.node().setIntoCollideMask(0)
-        self.playerFootRay.show()
         self.lifter = CollisionHandlerFloor()
         self.lifter.addCollider(self.playerFootRay, self.player)
-        self.lifter.setMaxVelocity(0.1)
+        self.lifter.setMaxVelocity(5)
         base.cTrav.addCollider(self.playerFootRay, self.lifter)
         # a collision segment slightly in front of the player to check for jump ledges
-        self.jumpCheckSegment = CollisionSegment(0, 0.1, 0, 0, 0.1, -1)
+        self.jumpCheckSegment = CollisionSegment(0, -0.1, 0.2, 0, -0.1, -1)
         self.playerJumpRay = self.player.attachNewNode(CollisionNode("playerJumpCollision"))
         self.playerJumpRay.node().addSolid(self.jumpCheckSegment)
         self.playerJumpRay.node().setIntoCollideMask(0)
         self.jumper = CollisionHandlerEvent()
         self.jumper.addOutPattern('%fn-out')
         base.cTrav.addCollider(self.playerJumpRay, self.jumper)
+        # a collision segment to check attacks
+        self.attackCheckSegment = CollisionSegment(0, 0, 1, 0, -1.3, 1)
+        self.playerAttackRay = self.player.attachNewNode(CollisionNode("playerAttackCollision"))
+        self.playerAttackRay.node().addSolid(self.attackCheckSegment)
+        self.playerAttackRay.node().setIntoCollideMask(0)
+        self.playerAttackRay.show()
+        self.attackqueue = CollisionHandlerQueue()
+        base.cTrav.addCollider(self.playerAttackRay, self.attackqueue)
 
+        #
+        # SOUNDEFFECTS
+        #
+        self.footstep = loader.loadSfx("Footstep.ogg")
+        self.footstep.setLoop(True)
+        self.footstep.setPlayRate(1.5)
+        self.footstep.setVolume(0.5)
+        self.spearAttackSfx = loader.loadSfx("SpearAttack.ogg")
+        self.spearAttackSfx.setVolume(0.5)
+
+    #
+    # START/STOP
+    #
     def start(self, startPoint):
         self.player.setPos(startPoint.getPos())
         self.player.setHpr(startPoint.getHpr())
         self.player.reparentTo(render)
+        self.savePos = self.player.getPos()
+
+        self.health = 3
 
         self.accept("arrow_left", self.setKey, ["left",1])
         self.accept("arrow_right", self.setKey, ["right",1])
@@ -136,31 +179,76 @@ class Player(FSM, DirectObject):
 
         camera.setPos(self.player, 0, self.camDistance, self.camHeightAvg)
 
+        self.hasJumped = False
+
         self.request("Idle")
 
     def stop(self):
         self.ignoreAll()
         self.player.hide()
 
+    #
+    # BASIC FUNCTIONS
+    #
+    def die(self):
+        self.health -= 1
+        base.messenger.send("setHealth", [self.health])
+        self.request("Death")
+
+    def heal(self):
+        if self.health >= 3: return
+        self.health += 1
+        base.messenger.send("setHealth", [self.health])
+
+    def hit(self):
+        self.health -= 1
+        base.messenger.send("setHealth", [self.health])
+        if self.health == 0:
+            self.request("Death")
+        else:
+            self.request("Hit")
+
+    def resetPlayerPos(self):
+        self.player.setPos(self.savePos)
+        self.request("Idle")
+
+    def gameOver(self):
+        print "GAME OVER"
+        base.messenger.send("GameOver")
+
+    def enterFightMode(self, trackedEnemy):
+        self.trackedEnemy = trackedEnemy
+        self.mode = Player.FightMode
+        self.acceptOnce("enter", self.request, ["FightAttack"])
+        self.acceptOnce("e", self.request, ["FightAttack"])
+        base.messenger.send("EnterFightMode")
+
+    def exitFightMode(self):
+        self.trackedEnemy = None
+        self.mode = Player.NormalMode
+        self.ignore("enter")
+        self.ignore("e")
+        self.acceptOnce("enter", self.request, ["Activate"])
+        self.acceptOnce("e", self.request, ["Activate"])
+        base.messenger.send("ExitFightMode")
+
+    #
+    # MOVE FUNCTIONS
+    #
     def setKey(self, key, value):
         self.keyMap[key] = value
-
-    def jump(self, extraArg):
-        print "JUMPING", extraArg
-        myMP = Mopath.Mopath()
-        myMP.loadFile("../assets/jump_arc")
-
-        myInterval = MopathInterval(myMP, self.player, name = "name")
-        myInterval.start()
-
 
     def move(self, task):
         dt = globalClock.getDt()
 
-        ac = self.player.getAnimControl("Activate")
-        if ac.isPlaying():
+        isJumping = False
+        if self.jumpInterval is not None:
+            if self.jumpInterval.isPlaying():
+                isJumping = True
+        acActivate = self.player.getAnimControl("Activate")
+        acAttack = self.player.getAnimControl("Fight_Attack")
+        if acActivate.isPlaying() or acAttack.isPlaying() or isJumping or self.state == "Death":
             return task.cont
-
         if self.mode == Player.NormalMode:
             self.__normalMove(dt)
         else:
@@ -170,10 +258,10 @@ class Player(FSM, DirectObject):
     def __normalMove(self, dt):
         requestState = "Idle"
         if self.keyMap["left"] != 0:
-            self.player.setH(self.player.getH() + 250 * globalClock.getDt())
+            self.player.setH(self.player.getH() + 150 * globalClock.getDt())
             requestState = "Run"
         if self.keyMap["right"] != 0:
-            self.player.setH(self.player.getH() - 250 * globalClock.getDt())
+            self.player.setH(self.player.getH() - 150 * globalClock.getDt())
             requestState = "Run"
         if self.keyMap["forward"] != 0:
             self.player.setY(self.player, -2 * dt)
@@ -186,24 +274,47 @@ class Player(FSM, DirectObject):
 
     def __fightMove(self, dt):
         if self.trackedEnemy == None: return
-        requestState = "Fight_Idle"
+        requestState = "Idle"
         self.player.lookAt(self.trackedEnemy)
         self.player.setH(self.player, 180)
         if self.keyMap["left"] != 0:
-            self.player.setX(self.player, 5 * dt)
-            requestState = "Fight_Left"
+            self.player.setX(self.player, 2 * dt)
+            requestState = "FightLeft"
         elif self.keyMap["right"] != 0:
-            self.player.setX(self.player, -5 * dt)
-            requestState = "Fight_Right"
+            self.player.setX(self.player, -2 * dt)
+            requestState = "FightRight"
         elif self.keyMap["forward"] != 0:
-            self.player.setY(self.player, -5 * dt)
+            self.player.setY(self.player, -2 * dt)
             requestState = "Run"
         elif self.keyMap["backward"] != 0:
-            self.player.setY(self.player, 5 * dt)
+            self.player.setY(self.player, 2 * dt)
             requestState = "RunReverse"
         if self.state != requestState:
             self.request(requestState)
 
+    def jump(self, extraArg):
+        intoName = extraArg.getIntoNode().getName().lower()
+        if not "floor" in intoName and not "plate" in intoName: return
+        # setup the projectile interval
+        startPos = self.player.getPos()
+        self.savePos = self.player.getPos() - (0, 0.5, 0)
+        self.savePos.setZ(self.savePos.getZ() + 0.5)
+        tempFloater = NodePath(PandaNode("tempJumpFloater"))
+        tempFloater.setPos(self.player, 0, -3.2, 0)
+        endPos = tempFloater.getPos()
+        tempFloater.removeNode()
+        self.jumpInterval = ProjectileInterval(
+            self.player,
+            startPos = startPos,
+            endPos = endPos,
+            duration = 1.5,
+            gravityMult = 0.25)
+        self.request("Jump")
+        self.jumpInterval.start()
+
+    #
+    # CAMERA FUNCTIONS
+    #
     def updateCam(self, task):
         if self.mode == Player.NormalMode:
             self.__normalCam()
@@ -291,23 +402,33 @@ class Player(FSM, DirectObject):
         camera.setY(self.player, self.fightCamDistance)
         camera.setZ(0.5)
 
-        self.camFloater.setPos(self.enemy.getPos())
-        self.camFloater.setX(self.enemy.getX() + self.lookatOffset.getX())
-        self.camFloater.setY(self.enemy.getY() + self.lookatOffset.getY())
-        self.camFloater.setZ(self.enemy.getZ() + self.lookatOffset.getZ())
+        self.camFloater.setPos(self.trackedEnemy.getPos())
+        self.camFloater.setX(self.trackedEnemy.getX() + self.lookatOffset.getX())
+        self.camFloater.setY(self.trackedEnemy.getY() + self.lookatOffset.getY())
+        self.camFloater.setZ(self.trackedEnemy.getZ() + self.lookatOffset.getZ())
 
         camera.lookAt(self.camFloater)
 
+    #
+    # FSM FUNCTIONS
+    #
     def enterIdle(self):
-        self.player.loop("Idle")
+        if self.mode == Player.NormalMode:
+            self.player.loop("Idle")
+            self.footstep.stop()
+        elif self.mode == Player.FightMode:
+            self.player.loop("Fight_Idle")
+            self.footstep.stop()
 
     def enterRun(self):
         self.player.setPlayRate(3, "Run")
         self.player.loop("Run")
+        self.footstep.play()
 
     def enterRunReverse(self):
         self.player.setPlayRate(-3, "Run")
         self.player.loop("Run")
+        self.footstep.play()
 
     def enterActivate(self):
         self.player.setPlayRate(2, "Activate")
@@ -315,24 +436,59 @@ class Player(FSM, DirectObject):
         base.messenger.send("Player_Activate")
         self.acceptOnce("enter", self.request, ["Activate"])
         self.acceptOnce("e", self.request, ["Activate"])
+        self.footstep.stop()
 
     def enterDeath(self):
-        self.player.play("Death")
+        self.footstep.stop()
+        deathAnim = self.player.actorInterval("Death")
+        deathComplete = None
+        if self.health == 0:
+            deathComplete = Sequence(
+                deathAnim,
+                Wait(2),
+                Func(self.gameOver))
+        else:
+            deathComplete = Sequence(
+                deathAnim,
+                Wait(2),
+                Func(self.resetPlayerPos))
+        deathComplete.start()
 
     def enterJump(self):
         self.player.play("Jump")
+        self.footstep.stop()
 
     def enterHit(self):
         self.player.play("Hit")
+        self.footstep.stop()
 
     def enterFightAttack(self):
+        self.player.setPlayRate(2, "Fight_Attack")
         self.player.play("Fight_Attack")
-
-    def enterFightIdle(self):
-        self.player.loop("Fight_Idle")
+        self.spearAttackSfx.play()
+        for i in range(self.attackqueue.getNumEntries()):
+            entry = self.attackqueue.getEntry(i)
+            into = entry.getIntoNode()
+            if "golemHitField" in into.getName():
+                if random.random() > .15:
+                    base.messenger.send("HitEnemy")
+                    print "HIT GOLEM"
+                else:
+                    print "MISS GOLEM"
+        if self.mode == Player.FightMode:
+            self.acceptOnce("enter", self.request, ["FightAttack"])
+            self.acceptOnce("e", self.request, ["FightAttack"])
+        else:
+            self.acceptOnce("enter", self.request, ["Activate"])
+            self.acceptOnce("e", self.request, ["Activate"])
+        self.footstep.stop()
 
     def enterFightLeft(self):
+        self.player.setPlayRate(2, "Fight_Left")
         self.player.loop("Fight_Left")
+        self.footstep.play()
 
     def enterFightRight(self):
+        self.player.setPlayRate(2, "Fight_Right")
         self.player.loop("Fight_Right")
+        self.footstep.play()

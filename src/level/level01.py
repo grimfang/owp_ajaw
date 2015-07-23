@@ -9,15 +9,21 @@ from panda3d.core import (
     Filename,
     CollideMask,
     CollisionSphere,
+    CollisionBox,
+    CollisionPlane,
     CollisionNode,
     BillboardEffect,
     CardMaker,
     TextureStage,
+    Plane,
     Vec3,
     Point3)
 from direct.interval.IntervalGlobal import (
     Parallel,
     Sequence)
+from direct.interval.FunctionInterval import (
+    Func,
+    Wait)
 from direct.interval.AnimControlInterval import AnimControlInterval
 from direct.showbase.DirectObject import DirectObject
 from direct.particles.ParticleEffect import ParticleEffect
@@ -26,6 +32,7 @@ class Level01(DirectObject):
     def __init__(self):
         # Level model
         self.level = loader.loadModel("Level")
+        self.key = loader.loadModel("Key")
 
         """Logic connections INFO
 
@@ -55,15 +62,17 @@ class Level01(DirectObject):
             ["First the highest, the second comes third and the lowest before the last.",[2,3,4,1]],
             ["The second lowest is the first then lower highest higher.",[2,1,4,3]],
             ["Before the last comes the second lowest, the first is the second highest followed by the lowest.",[2,3,1,4]]]
-
+        self.enemyLogic = {"Golem":"Wooden_Door_Basic.001"}
         self.KeyDoorLogic = ["Boulder_Door.001"]
         self.chestLogic = {
             "Box_long_looseLid.000":"GET_Key",
             "Box_long_looseLid.001":"GET_Artifact"}
-        self.gameEnd = "GET_artifact"
         self.activeSwitch = None
         self.activePostsign = None
         self.activeBox = None
+        self.activeDoor = None
+
+        self.numKeys = 0
 
         # Set up all the little details
         if base.particleMgrEnabled:
@@ -72,7 +81,16 @@ class Level01(DirectObject):
         self.initSwitchSigns()
         self.initPostsigns()
         self.initDoors()
+        self.initKeyDoors()
         self.initChests()
+        self.initHearts()
+
+        plane = self.level.find("**/Deathplane")
+        deathplane = CollisionPlane(Plane((0, 0, 1), (0,0,-1)))
+        deathplane.setTangible(False)
+        self.deathplaneColNP = render.attachNewNode(CollisionNode('deathplane'))
+        self.deathplaneColNP.node().addSolid(deathplane)
+        self.accept("playerCollision-in-deathplane", lambda args: base.messenger.send("player-die"))
 
     def initTorchParticles(self):
         torchTops = self.level.findAllMatches("**/TorchTop*")
@@ -148,7 +166,6 @@ class Level01(DirectObject):
         for i in range(11):
             cm = CardMaker('card%d'%i)
             cm.setColor(0,0,0,0)
-            #print cm.getFrame()
             cm.setFrame(-0.5, 0.5, -0.5, 0.5)
             card = self.level.attachNewNode(cm.generate())
             tex = loader.loadTexture('%d.png'%i)
@@ -197,7 +214,7 @@ class Level01(DirectObject):
             boxsphere.setTangible(False)
             boxColNP = object.getParent().attachNewNode(CollisionNode('boxActivation%d'%i))
             boxColNP.node().addSolid(boxsphere)
-            boxColNP.show()
+            #boxColNP.show()
             self.boxControls.setdefault(object.getParent(), [control, boxColNP])
             boxName = object.getParent().getParent().getName()
             self.accept("playerCollision-in-boxActivation%d"%i,
@@ -232,16 +249,56 @@ class Level01(DirectObject):
         for collider in colliders:
             if "Boulder_Door_door_collision" in collider.getName():
                 self.doorControls[collider.getParent()].append(collider)
-            elif "Wodd" in collider.getName():
-                #TODO FIXME: Typo Wodd -> Wood
+            elif "Wood" in collider.getName():
                 self.doorControls[collider.getParent()].append(collider)
 
         for key, value in self.doorControls.iteritems():
-            #self.__openDoor(key.getParent().getName())
             value[0].pose(0)
+
+    def initKeyDoors(self):
+        i = 0
+        for keyDoor in self.KeyDoorLogic:
+            for door, value in self.doorControls.iteritems():
+                if keyDoor == door.getParent().getName():
+                    c = Point3(0,0,0)
+                    p1 = Point3(c.getX()-1, c.getY()-0.8, c.getZ())
+                    p2 = Point3(c.getX()+1, c.getY()+0.8, c.getZ()+2)
+                    keyDoorBox = CollisionBox(p1, p2)
+                    keyDoorBox.setTangible(False)
+                    keyDoorColNP = door.getParent().attachNewNode(CollisionNode('keyDoorActivation%d'%i))
+                    keyDoorColNP.node().addSolid(keyDoorBox)
+                    keyDoorName = door.getParent().getName()
+                    self.accept("playerCollision-in-keyDoorActivation%d"%i,
+                                self.__setActivateElement,
+                                extraArgs=[True, keyDoorName, "door"])
+                    self.accept("playerCollision-out-keyDoorActivation%d"%i,
+                                self.__setActivateElement,
+                                extraArgs=[False, keyDoorName, "door"])
+                    i+=1
+
+    def initHearts(self):
+        heartPositions = self.level.findAllMatches('**/*Heart*')
+        self.hearts = []
+        i = 0
+        for pos in heartPositions:
+            heart = loader.loadModel("Heart")
+            heart.reparentTo(pos)
+            heartRotation = heart.hprInterval(2.0, Vec3(360, 0, 0))
+            heartRotation.loop()
+            heartsphere = CollisionSphere(0, 0, 0, 0.5)
+            heartsphere.setTangible(False)
+            heartColNP = heart.attachNewNode(CollisionNode('heart%d'%i))
+            heartColNP.node().addSolid(heartsphere)
+            self.accept("playerCollision-in-heart%d"%i,
+                        self.__collectHeart,
+                        extraArgs=[i])
+            self.hearts.append(heart)
+            i+=1
 
     def start(self):
         self.level.reparentTo(render)
+        self.key.reparentTo(render)
+        self.key.hide()
         self.initLights()
 
         #
@@ -290,7 +347,7 @@ class Level01(DirectObject):
             "Signpost.000":"You who dare to undergo the test of kings, actiavate the lever to the left and enter.",
             "Signpost.001":"This room will test your mind. Your mind is important to make wise decissions for your people. To open the door you have to solve this riddle:\n\n\"%s\"\n\nThe signs above the levers will guide you." % self.order1[0],
             "Signpost.002":"The next door can only be opend with a key placed in this chamber.",
-            "Signpost.003":"Be careful here, not to fall into the dangerous spikes. But go on without fear and you'll prove yourself to being able to guide your people throuh dangerous times.",
+            "Signpost.003":"Be careful here, not to fall into the dangerous spikes. But go on without fear and you'll prove yourself to being able to guide your people throuh dangerous times.\n\nWith the heartstones you can see here you can refil your health.",
             "Signpost.004":"In the next chamber a ferocious enemy will await you defending the artifact. Defeate him and show that you'll be able to defend your people.",
             "Signpost.005":"Finally you made it all the way through path of the kings. Open the chest, take the artefact and you'll be ready for becomming the next king."}
 
@@ -307,6 +364,7 @@ class Level01(DirectObject):
         if self.activeSwitch is not None: self.__activateSwitch()
         if self.activePostsign is not None: self.__activatePost()
         if self.activeBox is not None: self.__activateChest()
+        if self.activeDoor is not None: self.__activateKeyDoor()
 
     def __activateSwitch(self):
         if not self.activeSwitch in self.switchLogic.keys(): return
@@ -351,24 +409,70 @@ class Level01(DirectObject):
             self.__openDoor(self.switchLogic[self.activeSwitch])
 
     def __activatePost(self):
-        #print self.signTexts[self.activePostsign]
         base.messenger.send("showMessage", [self.signTexts[self.activePostsign]])
 
     def __activateChest(self):
         for box, value in self.boxControls.iteritems():
             if self.activeBox == box.getParent().getName():
                 if value[0].getFrame() != 0: return
-                #value[0].play()
-                key = loader.loadModel("Key")
-                key.setPos(box.getParent().getPos())
-                keyRisingInterval = key.posInterval(1.0, Point3(key.getX(), key.getY(), key.getZ() + 1.5))
-                keyRotationInterval = key.hprInterval(1.0, Vec3(360, 0, 0))
-                keyAnimation = Parallel(keyRisingInterval, keyRotationInterval, name="keyAnimation")
-                print value[0]
-                print type(value[0])
-                boxAnimation = AnimControlInterval(value[0])
-                chestFullAnimation = Sequence(boxAnimation, keyAnimation)
+                if self.chestLogic[self.activeBox] == "GET_Key":
+                    self.key.show()
+                    self.key.setPos(box.getParent().getPos())
+                    self.key.setZ(self.key.getZ() + 0.5)
+                    self.key.setHpr(box.getParent().getHpr())
+                    self.key.setH(self.key.getH() + 90.0)
+                    keyRisingInterval = self.key.posInterval(1.5, Point3(self.key.getX(), self.key.getY(), self.key.getZ() + 1.0))
+                    keyRotationInterval = self.key.hprInterval(3.0, Vec3(self.key.getH() + 360*2, 0, 0))
+                    keyAnimation = Parallel(keyRisingInterval, keyRotationInterval, name="keyAnimation")
+                    boxAnimation = AnimControlInterval(value[0])
+                    chestFullAnimation = Sequence(
+                        boxAnimation,
+                        keyAnimation,
+                        Wait(0.25),
+                        Func(self.key.hide),
+                        Func(self.addKey))
+                elif self.chestLogic[self.activeBox] == "GET_Artifact":
+                    self.artifact.show()
+                    self.artifact.setPos(box.getParent().getPos())
+                    self.artifact.setZ(self.key.getZ() + 0.5)
+                    self.artifact.setHpr(box.getParent().getHpr())
+                    self.artifact.setH(self.key.getH() + 90.0)
+                    artifactRisingInterval = self.artifact.posInterval(
+                        1.5,
+                        Point3(self.artifact.getX(), self.artifact.getY(), self.artifact.getZ() + 1.0))
+                    artifactRotationInterval = self.artifact.hprInterval(
+                        3.0,
+                        Vec3(self.artifact.getH() + 360*2, 0, 0))
+                    artifactAnimation = Parallel(
+                        artifactRisingInterval,
+                        artifactRotationInterval,
+                        name="artifactAnimation")
+                    boxAnimation = AnimControlInterval(value[0])
+                    chestFullAnimation = Sequence(
+                        boxAnimation,
+                        keyAnimation,
+                        Wait(0.25),
+                        Func(self.artifact.hide),
+                        Func(self.getArtifact))
                 chestFullAnimation.start()
+
+    def __activateKeyDoor(self):
+        if self.numKeys > 0:
+            self.__openDoor(self.activeDoor)
+            self.numKeys -= 1
+        base.messenger.send("updateKeyCount", [self.numKeys])
+
+    def __collectHeart(self, index, extraArgs):
+        heart = self.hearts[index]
+        heart.removeNode()
+        base.messenger.send("player-heal")
+
+    def addKey(self):
+        self.numKeys += 1
+        base.messenger.send("updateKeyCount", [self.numKeys])
+
+    def getArtifact(self):
+        base.messenger.send("GameOer")
 
     def __setActivateElement(self, active, element, elementType, CollEntry):
         if active:
@@ -390,12 +494,21 @@ class Level01(DirectObject):
                 self.activeBox = element
             else:
                 self.activeBox = None
+        elif elementType == "door":
+            if active:
+                self.activeDoor = element
+            else:
+                self.activeDoor = None
 
     def defeatEnemy(self, enemy):
-        pass
+        print "defeated", enemy
+        for key, value in self.enemyLogic.iteritems():
+            if key == enemy:
+                self.__openDoor(value)
 
     def __openDoor(self, door):
         for key, value in self.doorControls.iteritems():
             if door == key.getParent().getName():
+                base.messenger.send("PuzzleSolved")
                 value[0].play()
                 value[1].node().setIntoCollideMask(CollideMask.allOff())

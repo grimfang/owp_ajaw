@@ -1917,7 +1917,7 @@
       }
     }
   }
-  <Group> Wodden_Door_Basic_collision {
+  <Group> Wooden_Door_Basic_collision {
     <Collide> { Polyset descend }
     <Transform> {
       <Matrix4> {
@@ -1928,7 +1928,7 @@
       }
     }
     
-    <VertexPool> Wodden_Door_Basic_collision {
+    <VertexPool> Wooden_Door_Basic_collision {
     
       <Vertex> 0 {-2.000000 -0.025000 4.050000
       }
@@ -1982,26 +1982,26 @@
     
     <Polygon> {
       <Normal> {-1.000000 0.000000 0.000000}
-      <VertexRef> { 0 1 2 3 <Ref> { Wodden_Door_Basic_collision }} 
+      <VertexRef> { 0 1 2 3 <Ref> { Wooden_Door_Basic_collision }} 
     }
     <Polygon> {
       <Normal> {0.000000 1.000000 0.000000}
-      <VertexRef> { 4 5 6 7 <Ref> { Wodden_Door_Basic_collision }} 
+      <VertexRef> { 4 5 6 7 <Ref> { Wooden_Door_Basic_collision }} 
     }
     <Polygon> {
       <Normal> {1.000000 0.000000 0.000000}
-      <VertexRef> { 8 9 10 11 <Ref> { Wodden_Door_Basic_collision }} 
+      <VertexRef> { 8 9 10 11 <Ref> { Wooden_Door_Basic_collision }} 
     }
     <Polygon> {
       <Normal> {0.000000 -1.000000 0.000000}
-      <VertexRef> { 12 13 14 15 <Ref> { Wodden_Door_Basic_collision }} 
+      <VertexRef> { 12 13 14 15 <Ref> { Wooden_Door_Basic_collision }} 
     }
     <Polygon> {
       <Normal> {0.000000 0.000000 -1.000000}
-      <VertexRef> { 16 17 18 19 <Ref> { Wodden_Door_Basic_collision }} 
+      <VertexRef> { 16 17 18 19 <Ref> { Wooden_Door_Basic_collision }} 
     }
     <Polygon> {
       <Normal> {0.000000 0.000000 1.000000}
-      <VertexRef> { 20 21 22 23 <Ref> { Wodden_Door_Basic_collision }} 
+      <VertexRef> { 20 21 22 23 <Ref> { Wooden_Door_Basic_collision }} 
     }
   }
