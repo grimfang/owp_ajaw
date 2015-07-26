@@ -10,113 +10,135 @@ import __builtin__
 from direct.showbase.DirectObject import DirectObject
 from direct.gui.DirectCheckBox import DirectCheckBox
 from direct.gui.DirectGui import (
-	DirectFrame,
-	DirectLabel,
-	DirectButton,
-	DirectCheckButton,
-	DGG)
+    DirectFrame,
+    DirectLabel,
+    DirectButton,
+    DirectSlider,
+    DirectCheckButton,
+    DGG)
 from panda3d.core import TextNode
 
 class OptionsMenu(DirectObject):
-	def __init__(self):
-		"""Default constructor"""
-		# create a main frame as big as the window
-		self.frameMain = DirectFrame(
-			# set framesize the same size as the window
-			frameSize = (base.a2dLeft, base.a2dRight,
-						 base.a2dTop, base.a2dBottom),
-			image = "LogoText.png",
-			image_scale = (1/2.0, 1, 0.7/2.0),
-			image_pos = (0, 0, 0.5),
-			# position center
-			pos = (0, 0, 0),
-			# set tramsparent background color
-			frameColor = (0, 0, 0, 0))
+    def __init__(self):
+        """Default constructor"""
+        # create a main frame as big as the window
+        self.frameMain = DirectFrame(
+            # set framesize the same size as the window
+            frameSize = (base.a2dLeft, base.a2dRight,
+                         base.a2dTop, base.a2dBottom),
+            image = "LogoTextGlow.png",
+            image_scale = (1.06/2.0, 1, 0.7/2.0),
+            image_pos = (0, 0, 0.5),
+            # position center
+            pos = (0, 0, 0),
+            # set tramsparent background color
+            frameColor = (0, 0, 0, 0))
+        self.frameMain.setTransparency(1)
 
-		buttonScale = 0.25
-		geom = None
+        buttonScale = 0.25
 
-		isChecked = not base.AppHasAudioFocus
-		img = None
-		if base.AppHasAudioFocus:
-			img = "AudioSwitch_on.png"
-		else:
-			img = "AudioSwitch_off.png"
-		self.cbVolumeMute = DirectCheckBox(
-			text = "",
-			pos = (0, 0, -0.5),
-			scale = 0.25,
-			command = self.cbVolumeMute_CheckedChanged,
-			rolloverSound = None,
-			clickSound = None,
-			relief = None,
-			pressEffect = False,
-			isChecked = isChecked,
-			image = img,
-			image_scale = 0.5,
-			checkedImage = "AudioSwitch_off.png",
-			uncheckedImage = "AudioSwitch_on.png")
-		self.cbVolumeMute.setTransparency(1)
-		self.cbVolumeMute.setImage()
-		self.cbVolumeMute.reparentTo(self.frameMain)
+        self.cbParticles = DirectCheckButton(
+            text = "Particles",
+            text_fg = (1, 1, 1, 1),
+            text_shadow = (0, 0, 0, 0.35),
+            pos = (0, 0, 0.0),
+            scale = 0.15,
+            frameColor = (0,0,0,0),
+            command = self.cbParticles_CheckedChanged,
+            rolloverSound = None,
+            clickSound = None,
+            #relief = None,
+            pressEffect = False,
+            indicatorValue = base.particleMgrEnabled
+            )
+        self.cbParticles.setTransparency(1)
+        #self.cbParticles.setImage()
+        self.cbParticles.reparentTo(self.frameMain)
 
-		self.cbParticles = DirectCheckButton(
-			text = "Particles",
-			text_fg = (1, 1, 1, 1),
-			text_shadow = (0, 0, 0, 0.35),
-			pos = (0, 0, -0.2),
-			scale = 0.15,
-			command = self.cbParticles_CheckedChanged,
-			rolloverSound = None,
-			clickSound = None,
-			#relief = None,
-			pressEffect = False,
-			indicatorValue = base.particleMgrEnabled
-			)
-		self.cbParticles.setTransparency(1)
-		#self.cbParticles.setImage()
-		self.cbParticles.reparentTo(self.frameMain)
+        volume = base.musicManager.getVolume()
+        self.sliderVolume = DirectSlider(
+            scale = 0.5,
+            pos = (0, 0, -0.35),
+            range = (0,1),
+            scrollSize = 0.01,
+            text = "Volume %d%%"%volume*100,
+            text_scale = 0.25,
+            text_align = TextNode.ACenter,
+            text_pos = (.0, 0.15),
+            text_fg = (1,1,1,1),
+            value = volume,
+            command = self.sliderVolume_ValueChanged)
+        self.sliderVolume.reparentTo(self.frameMain)
 
-		# create the back button
-		self.btnBack = DirectButton(
-			scale = buttonScale,
-			# position on the window
-			pos = (0, 0, base.a2dBottom + 0.15),
-			frameColor = (0,0,0,0),
-			#geom = geom,
-			# text properties
-			text = "Back",
-			text_scale = 0.5,
-			text_fg = (1,1,1,1),
-			text_pos = (0.0, -0.15),
-			text_shadow = (0, 0, 0, 0.35),
-			text_shadowOffset = (-0.05, -0.05),
-			# sounds that should be played
-			rolloverSound = None,
-			clickSound = None,
-			pressEffect = False,
-			relief = None,
-			# the event which is thrown on clickSound
-			command = lambda: base.messenger.send("options_back"))
-		self.btnBack.setTransparency(1)
-		self.btnBack.reparentTo(self.frameMain)
+        isChecked = not base.AppHasAudioFocus
+        img = None
+        if base.AppHasAudioFocus:
+            img = "AudioSwitch_on.png"
+        else:
+            img = "AudioSwitch_off.png"
+        self.cbVolumeMute = DirectCheckBox(
+            text = "",
+            pos = (0, 0, -0.5),
+            scale = 0.21,
+            command = self.cbVolumeMute_CheckedChanged,
+            rolloverSound = None,
+            clickSound = None,
+            relief = None,
+            pressEffect = False,
+            isChecked = isChecked,
+            image = img,
+            image_scale = 0.5,
+            checkedImage = "AudioSwitch_off.png",
+            uncheckedImage = "AudioSwitch_on.png")
+        self.cbVolumeMute.setTransparency(1)
+        self.cbVolumeMute.setImage()
+        self.cbVolumeMute.reparentTo(self.frameMain)
 
-		self.hide()
+        # create the back button
+        self.btnBack = DirectButton(
+            scale = buttonScale,
+            # position on the window
+            pos = (0, 0, base.a2dBottom + 0.15),
+            frameColor = (0,0,0,0),
+            # text properties
+            text = "Back",
+            text_scale = 0.5,
+            text_fg = (1,1,1,1),
+            text_pos = (0.0, -0.15),
+            text_shadow = (0, 0, 0, 0.35),
+            text_shadowOffset = (-0.05, -0.05),
+            # sounds that should be played
+            rolloverSound = None,
+            clickSound = None,
+            pressEffect = False,
+            relief = None,
+            # the event which is thrown on clickSound
+            command = lambda: base.messenger.send("options_back"))
+        self.btnBack.setTransparency(1)
+        self.btnBack.reparentTo(self.frameMain)
 
-	def show(self, enableResume=False):
-		self.frameMain.show()
+        self.hide()
 
-	def hide(self):
-		self.frameMain.hide()
+    def show(self, enableResume=False):
+        self.frameMain.show()
 
-	def cbVolumeMute_CheckedChanged(self, checked):
-		if checked:
-			base.disableAllAudio()
-		else:
-			base.enableAllAudio()
+    def hide(self):
+        self.frameMain.hide()
 
-	def cbParticles_CheckedChanged(self, unchecked):
-		if unchecked:
-			base.enableParticles()
-		else:
-			base.disableParticles()
+    def cbVolumeMute_CheckedChanged(self, checked):
+        if checked:
+            base.disableAllAudio()
+        else:
+            base.enableAllAudio()
+
+    def sliderVolume_ValueChanged(self):
+        volume = round(self.sliderVolume["value"], 2)
+        self.sliderVolume["text"] = "Volume %d%%" % int(volume * 100)
+        base.sfxManagerList[0].setVolume(volume)
+        base.musicManager.setVolume(volume)
+
+    def cbParticles_CheckedChanged(self, unchecked):
+        if unchecked:
+            base.enableParticles()
+        else:
+            base.disableParticles()

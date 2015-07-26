@@ -15,6 +15,7 @@ from panda3d.core import (
     BillboardEffect,
     CardMaker,
     TextureStage,
+    TransparencyAttrib,
     Plane,
     Vec3,
     Point3)
@@ -33,6 +34,7 @@ class Level01(DirectObject):
         # Level model
         self.level = loader.loadModel("Level")
         self.key = loader.loadModel("Key")
+        self.artifact = loader.loadModel("Artifact")
 
         """Logic connections INFO
 
@@ -168,6 +170,7 @@ class Level01(DirectObject):
             cm.setColor(0,0,0,0)
             cm.setFrame(-0.5, 0.5, -0.5, 0.5)
             card = self.level.attachNewNode(cm.generate())
+            card.setAttrib(TransparencyAttrib.make(TransparencyAttrib.M_alpha))
             tex = loader.loadTexture('%d.png'%i)
             ts = TextureStage('ts')
             ts.setMode(TextureStage.MReplace)
@@ -299,6 +302,8 @@ class Level01(DirectObject):
         self.level.reparentTo(render)
         self.key.reparentTo(render)
         self.key.hide()
+        self.artifact.reparentTo(render)
+        self.artifact.hide()
         self.initLights()
 
         #
@@ -348,7 +353,7 @@ class Level01(DirectObject):
             "Signpost.001":"This room will test your mind. Your mind is important to make wise decissions for your people. To open the door you have to solve this riddle:\n\n\"%s\"\n\nThe signs above the levers will guide you." % self.order1[0],
             "Signpost.002":"The next door can only be opend with a key placed in this chamber.",
             "Signpost.003":"Be careful here, not to fall into the dangerous spikes. But go on without fear and you'll prove yourself to being able to guide your people throuh dangerous times.\n\nWith the heartstones you can see here you can refil your health.",
-            "Signpost.004":"In the next chamber a ferocious enemy will await you defending the artifact. Defeate him and show that you'll be able to defend your people.",
+            "Signpost.004":"In the next chamber a ferocious enemy will await you defending the artifact. Defeate him and show that you'll be able to defend your people.\n\nTo attack use the action key.",
             "Signpost.005":"Finally you made it all the way through path of the kings. Open the chest, take the artefact and you'll be ready for becomming the next king."}
 
     def stop(self):
@@ -434,9 +439,7 @@ class Level01(DirectObject):
                 elif self.chestLogic[self.activeBox] == "GET_Artifact":
                     self.artifact.show()
                     self.artifact.setPos(box.getParent().getPos())
-                    self.artifact.setZ(self.key.getZ() + 0.5)
-                    self.artifact.setHpr(box.getParent().getHpr())
-                    self.artifact.setH(self.key.getH() + 90.0)
+                    self.artifact.setZ(self.artifact.getZ() + 0.5)
                     artifactRisingInterval = self.artifact.posInterval(
                         1.5,
                         Point3(self.artifact.getX(), self.artifact.getY(), self.artifact.getZ() + 1.0))
@@ -450,7 +453,7 @@ class Level01(DirectObject):
                     boxAnimation = AnimControlInterval(value[0])
                     chestFullAnimation = Sequence(
                         boxAnimation,
-                        keyAnimation,
+                        artifactAnimation,
                         Wait(0.25),
                         Func(self.artifact.hide),
                         Func(self.getArtifact))
@@ -472,7 +475,7 @@ class Level01(DirectObject):
         base.messenger.send("updateKeyCount", [self.numKeys])
 
     def getArtifact(self):
-        base.messenger.send("GameOer")
+        base.messenger.send("GameOver", ["win"])
 
     def __setActivateElement(self, active, element, elementType, CollEntry):
         if active:
@@ -501,7 +504,6 @@ class Level01(DirectObject):
                 self.activeDoor = None
 
     def defeatEnemy(self, enemy):
-        print "defeated", enemy
         for key, value in self.enemyLogic.iteritems():
             if key == enemy:
                 self.__openDoor(value)

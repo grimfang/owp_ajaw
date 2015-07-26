@@ -1,4 +1,5 @@
 from pandac.PandaModules import WindowProperties
+import sys
 
 def hide_cursor():
     """set the Cursor invisible"""
@@ -14,11 +15,10 @@ def show_cursor():
     props = WindowProperties()
     props.setCursorHidden(False)
     # set the filename to the mouse cursor
-    #x11 = os.path.join("data", "Cursor.x11")
-    #win = os.path.join("data", "Cursor.ico")
-    #if sys.platform.startswith("linux"):
-    #    props.setCursorFilename(x11)
-    #else:
-    #    props.setCursorFilename(win)
-    #props.setUndecorated(settings.fullscreen)
+    x11 = "Cursor.x11"
+    win = "Cursor.ico"
+    if sys.platform.startswith("linux"):
+        props.setCursorFilename(x11)
+    else:
+        props.setCursorFilename(win)
     base.win.requestProperties(props)

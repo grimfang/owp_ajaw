@@ -3,16 +3,27 @@ from player import Player
 from golem import Golem
 from gui.textfield import MessageWriter
 from gui.hud import PlayerHUD
+from gui.loadingscreen import LoadingScreen
+from gui.gameOverScreen import GameOverScreen
 from direct.showbase.DirectObject import DirectObject
 import helper
+import time
 
 class World(DirectObject):
     def __init__(self):
+        self.loadingscreen = LoadingScreen()
+        self.loadingscreen.show()
+        self.gameoverscreen = GameOverScreen()
         self.level = Level01()
+        self.loadingscreen.setLoadingValue(10)
         self.player = Player()
+        self.loadingscreen.setLoadingValue(15)
         self.golem = Golem()
+        self.loadingscreen.setLoadingValue(20)
         self.msgWriter = MessageWriter()
+        self.loadingscreen.setLoadingValue(25)
         self.hud = PlayerHUD()
+        self.loadingscreen.setLoadingValue(30)
 
         self.musicAmbient = loader.loadMusic("MayanJingle1_Ambient.ogg")
         self.musicAmbient.setLoop(True)
@@ -21,14 +32,19 @@ class World(DirectObject):
         self.musicGameOver = loader.loadMusic("MayanJingle5_GameOver.ogg")
         self.puzzleSolved = loader.loadSfx("MayanJingle4_PuzzleSolved.ogg")
         self.getItem = loader.loadSfx("MayanJingle2_GetItem.ogg")
+        self.loadingscreen.setLoadingValue(40)
 
     def start(self):
         helper.hide_cursor()
         self.level.start()
+        self.loadingscreen.setLoadingValue(55)
         self.player.start(self.level.getPlayerStartPoint())
+        self.loadingscreen.setLoadingValue(65)
         self.hud.show()
         self.hud.updateKeyCount(0)
+        self.loadingscreen.setLoadingValue(75)
         self.golem.start(self.level.getGolemStartPoint())
+        self.loadingscreen.setLoadingValue(85)
 
         self.playMusic("ambient")
 
@@ -51,6 +67,32 @@ class World(DirectObject):
         self.accept("HitPlayer", self.player.hit)
         self.accept("GolemDestroyed", self.exitFight)
         self.accept("GameOver", self.gameOver)
+        self.accept("Exit", base.messenger.send, ["escape"])
+        self.loadingscreen.setLoadingValue(100)
+        self.loadingscreen.hide()
+        self.startTime = time.time()
+        base.messenger.send(
+            "showMessage",
+            ["Welcome to path of Kings, follow the signposts and try to survive this dungeon.\nmove with the arrow keys or w a s d\n\nGood luck..."])
+
+    def stop(self):
+        helper.show_cursor()
+        self.level.stop()
+        self.player.stop()
+        self.golem.stop()
+        self.hud.hide()
+        self.msgWriter.hide()
+        self.gameoverscreen.hide()
+        self.ignoreAll()
+        self.musicAmbient.stop()
+        self.musicFight.stop()
+
+    def cleanup(self):
+        self.player.cleanup()
+        del self.player
+        self.golem.cleanup()
+        del self.golem
+        base.cTrav.clearColliders()
 
     def enterFight(self):
         self.playMusic("fight")
@@ -66,21 +108,13 @@ class World(DirectObject):
         else:
             self.musicAmbient.play()
 
-    def gameOver(self):
-        print "Game Over"
-        self.stop()
+    def gameOver(self, winLoose):
+        helper.show_cursor()
+        self.endTime = time.time()
+        self.gameoverscreen.show(winLoose, self.endTime - self.startTime)
 
     def playSfx(self, sfx):
         if sfx == "puzzleSolved":
             self.puzzleSolved.play()
         elif sfx == "getItem":
             self.getItem.play()
-
-    def stop(self):
-        helper.show_cursor()
-        self.level.stop()
-        self.player.stop()
-        self.golem.stop()
-        self.hud.hide()
-        self.msgWriter.hide()
-        self.ignoreAll()

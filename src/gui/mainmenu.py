@@ -14,13 +14,14 @@ class Menu(DirectObject):
             frameSize = (base.a2dLeft, base.a2dRight,
                          base.a2dTop, base.a2dBottom),
             # position of the frame
-            image = "LogoText.png",
-            image_scale = (1, 1, 0.7),
+            image = "LogoTextGlow.png",
+            image_scale = (1.06, 1, 0.7),
             image_pos = (0, 0, 0.25),
             pos = (0, 0, 0),
             # tramsparent bg color
             frameColor = (0, 0, 0, 0),
             sortOrder = 0)
+        self.frameMain.setTransparency(1)
 
         btnGeom = None
 

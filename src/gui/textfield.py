@@ -79,6 +79,7 @@ class MessageWriter(DirectObject):
     def setMessageAndShow(self, message):
         """Function to simply add a new message and show it if no other
         message is currently shown"""
+        self.clear()
         logging.debug("show message %s" % message)
         self.textfieldText = message
         self.show()

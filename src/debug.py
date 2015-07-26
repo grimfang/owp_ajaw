@@ -29,6 +29,9 @@ def setupDebugHelp(APP):
         render Nodepath"""
         APP.render.explore()
 
+    def analyze():
+        APP.render.analyze()
+
     def toggleWireframe():
         """Switch between wired model view and normal view"""
         base.toggleWireframe()
@@ -47,6 +50,7 @@ def setupDebugHelp(APP):
 
     # create a DirectObject object to handle the key input by the user
     directobject = DirectObject()
+    directobject.accept("f2", analyze)
     directobject.accept("f3", explorer)
     directobject.accept("f4", toggleWireframe)
     directobject.accept("f5", takeScreenshot)

@@ -9,6 +9,12 @@ import logging
 from direct.showbase.ShowBase import ShowBase
 from direct.fsm.FSM import FSM
 from panda3d.core import (
+    CardMaker,
+    TextureStage,
+    TransparencyAttrib,
+    LVecBase4f,
+    NodePath,
+    AudioSound,
     CollisionTraverser,
     CollisionHandlerPusher,
     WindowProperties,
@@ -21,6 +27,11 @@ from panda3d.core import (
     OFileStream,
     loadPrcFileData,
     loadPrcFile)
+from direct.interval.IntervalGlobal import Sequence
+from direct.interval.FunctionInterval import (
+    Wait,
+    Func)
+from direct.interval.LerpInterval import LerpColorScaleInterval
 
 # set the application Name
 __builtin__.appName = "Ajaw"
@@ -73,6 +84,7 @@ nout.addFile(Filename(os.path.join(__builtin__.basedir, "game_p3d.log")))
 from world import World
 from gui.mainmenu import Menu
 from gui.optionsmenu import OptionsMenu
+import helper
 
 class Main(ShowBase, FSM):
     def __init__(self):
@@ -86,6 +98,7 @@ class Main(ShowBase, FSM):
         self.setBackgroundColor(0, 0, 0)
         self.camLens.setFov(75)
         base.camLens.setNear(0.8)
+        helper.hide_cursor()
 
         #
         # Basic Application configuration
@@ -127,15 +140,88 @@ class Main(ShowBase, FSM):
         self.menu = Menu()
         self.options = OptionsMenu()
 
+        self.musicMenu = loader.loadMusic("MayanJingle6_Menu.ogg")
+        self.musicMenu.setLoop(True)
+
         self.accept("escape", self.__escape)
         self.accept("menu_quit", self.quit)
         self.accept("menu_start", lambda: self.request("Start"))
         self.accept("menu_options", lambda: self.request("Options"))
         self.accept("options_back", self.__escape)
 
-        self.request("Menu")
+
+
+        self.request("Intro")
+
+    def enterIntro(self):
+        cm = CardMaker("fade")
+        cm.setFrameFullscreenQuad()
+        self.gfLogo = NodePath(cm.generate())
+        self.gfLogo.setTransparency(TransparencyAttrib.MAlpha)
+        gfLogotex = loader.loadTexture('GrimFangLogo.png')
+        gfLogots = TextureStage('gfLogoTS')
+        gfLogots.setMode(TextureStage.MReplace)
+        self.gfLogo.setTexture(gfLogots, gfLogotex)
+        self.gfLogo.setY(-50)
+        self.gfLogo.reparentTo(render2d)
+        self.gfLogo.hide()
+
+        self.pandaLogo = NodePath(cm.generate())
+        self.pandaLogo.setTransparency(TransparencyAttrib.MAlpha)
+        pandaLogotex = loader.loadTexture('Panda3DLogo.png')
+        pandaLogots = TextureStage('pandaLogoTS')
+        pandaLogots.setMode(TextureStage.MReplace)
+        self.pandaLogo.setTexture(pandaLogots, pandaLogotex)
+        self.pandaLogo.setY(-50)
+        self.pandaLogo.reparentTo(render2d)
+        self.pandaLogo.hide()
+
+
+        gfFadeInInterval = LerpColorScaleInterval(
+            self.gfLogo,
+            2,
+            LVecBase4f(0.0,0.0,0.0,1.0),
+            LVecBase4f(0.0,0.0,0.0,0.0))
+
+        gfFadeOutInterval = LerpColorScaleInterval(
+            self.gfLogo,
+            2,
+            LVecBase4f(0.0,0.0,0.0,0.0),
+            LVecBase4f(0.0,0.0,0.0,1.0))
+
+        p3dFadeInInterval = LerpColorScaleInterval(
+            self.pandaLogo,
+            2,
+            LVecBase4f(0.0,0.0,0.0,1.0),
+            LVecBase4f(0.0,0.0,0.0,0.0))
+
+        p3dFadeOutInterval = LerpColorScaleInterval(
+            self.pandaLogo,
+            2,
+            LVecBase4f(0.0,0.0,0.0,0.0),
+            LVecBase4f(0.0,0.0,0.0,1.0))
+
+        self.fadeInOut = Sequence(
+            Func(self.pandaLogo.show),
+            p3dFadeInInterval,
+            Wait(1.0),
+            p3dFadeOutInterval,
+            Wait(0.5),
+            Func(self.pandaLogo.hide),
+            Func(self.gfLogo.show),
+            gfFadeInInterval,
+            Wait(1.0),
+            gfFadeOutInterval,
+            Wait(0.5),
+            Func(self.gfLogo.hide),
+            Func(self.request, "Menu"),
+            Func(helper.show_cursor),
+            name="fadeInOut")
+        self.fadeInOut.start()
 
     def enterMenu(self):
+        if self.musicMenu.status() == AudioSound.READY:
+            self.musicMenu.play()
         self.menu.show()
 
     def exitMenu(self):
@@ -148,16 +234,23 @@ class Main(ShowBase, FSM):
         self.options.hide()
 
     def enterStart(self):
+        self.musicMenu.stop()
         self.world = World()
         self.world.start()
 
     def exitStart(self):
         self.world.stop()
+        self.world.cleanup()
+        del self.world
 
     def __escape(self):
         """A function that should be called when hitting the esc key or
         any other similar event happens"""
-        if self.state == "Menu":
+        if self.fadeInOut.isPlaying():
+            self.fadeInOut.finish()
+            self.pandaLogo.hide()
+            self.gfLogo.hide()
+        elif self.state == "Menu":
             self.quit()
         else:
             self.request("Menu")
@@ -173,6 +266,7 @@ class Main(ShowBase, FSM):
         create one. The prc file is set in the prcFile variable"""
         page = None
         particles = str(base.particleMgrEnabled)
+        volume = str(round(base.musicManager.getVolume(), 2))
         if os.path.exists(prcFile):
             page = loadPrcFile(Filename.fromOsSpecific(prcFile))
             removeDecls = []
@@ -186,12 +280,16 @@ class Main(ShowBase, FSM):
                 elif page.getVariableName(dec) == "audio-mute":
                     decl = page.modifyDeclaration(dec)
                     removeDecls.append(decl)
+                elif page.getVariableName(dec) == "audio-volume":
+                    decl = page.modifyDeclaration(dec)
+                    removeDecls.append(decl)
             for dec in removeDecls:
                 page.deleteDeclaration(dec)
             # Particles
             particles = "#f" if not base.particleMgrEnabled else "#t"
             page.makeDeclaration("particles-enabled", particles)
             # audio
+            page.makeDeclaration("audio-volume", volume)
             mute = "#f" if base.AppHasAudioFocus else "#t"
             page.makeDeclaration("audio-mute", mute)
         else:
@@ -208,6 +306,7 @@ class Main(ShowBase, FSM):
             # particles
             page.makeDeclaration("particles-enabled", "#t")
             # audio
+            page.makeDeclaration("audio-volume", volume)
             page.makeDeclaration("audio-mute", "#f")
         # create a stream to the specified config file
         configfile = OFileStream(prcFile)
