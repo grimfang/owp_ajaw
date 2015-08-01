@@ -23,7 +23,7 @@ class GameOverScreen():
             scale = 0.25,
             pos = (0, 0, 0.25),
             frameColor = (0, 0, 0, 0),
-            text = "You Succeeded",
+            text = _("You Succeeded"),
             text_align = TextNode.ACenter,
             text_fg = (1,1,1,1))
         self.lblWin.reparentTo(self.frameMain)
@@ -49,7 +49,7 @@ class GameOverScreen():
         self.btnContinue = DirectButton(
             scale = (0.25, 0.25, 0.25),
             # some temp text
-            text = "Continue...",
+            text = _("Continue..."),
             text_scale = (0.5, 0.5, 0.5),
             # set the alignment to right
             text_align = TextNode.ACenter,
@@ -77,7 +77,7 @@ class GameOverScreen():
             self.lblTime.show()
             self.lblResult.show()
         else:
-            self.lblWin["text"] = "You Loose"
+            self.lblWin["text"] = _("You Loose")
             self.lblTime.hide()
             self.lblResult.hide()
         self.frameMain.show()

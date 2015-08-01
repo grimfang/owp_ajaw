@@ -45,7 +45,7 @@ class PlayerHUD():
             text_fg = (1, 1, 1, 1),
             scale = 0.15,
             pos = (0, 0, 0.15),
-            text = "Action: E/Enter")
+            text = _("Action: E/Enter"))
         self.actionKey.setTransparency(True)
         self.actionKey.reparentTo(base.a2dBottomCenter)
         self.actionKey.hide()

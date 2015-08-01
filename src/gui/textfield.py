@@ -25,7 +25,6 @@ class MessageWriter(DirectObject):
         # somehow else stoped
         self.stop = False
         # the speed new letters are added to the text
-        self.writespeed = 0.05
         # the time, how long the text is shown after it is fully written
         self.showlength = 4
 
@@ -103,7 +102,7 @@ class MessageWriter(DirectObject):
                 # be visible on screen has elapsed
                 self.stop = True
                 self.textfieldNodePath.flattenStrong()
-        elif (task.time - self.lastSign > self.writespeed) and (not self.stop):
+        elif (task.time - self.lastSign > base.textWriteSpeed) and (not self.stop):
             # write the next letter of the text
             self.textfield.appendText(self.textfieldText[self.currentSign])
             self.currentSign += 1

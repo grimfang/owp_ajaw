@@ -1,0 +1,190 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR ORGANIZATION
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: 1.0\n"
+"POT-Creation-Date: 2015-07-30 10:36+CEST\n"
+"PO-Revision-Date: 2015-07-31 22:20+0100\n"
+"Last-Translator: Fireclaw the Fox <grimfang.studio@gmail.com>\n"
+"Language-Team: de_DE <grimfang.studio@gmail.com>\n"
+"Language: Deutsch\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: pygettext.py 1.5\n"
+"X-Generator: Poedit 1.5.4\n"
+"X-Poedit-SourceCharset: UTF-8\n"
+
+#: gui/gameOverScreen.py:26
+msgid "You Succeeded"
+msgstr "Gewonnen"
+
+#: gui/gameOverScreen.py:52
+msgid "Continue..."
+msgstr "Weiter..."
+
+#: gui/gameOverScreen.py:80
+msgid "You Loose"
+msgstr "Verloren"
+
+#: gui/hud.py:48
+msgid "Action: E/Enter"
+msgstr "Aktion: E/Enter"
+
+#: gui/loadingscreen.py:28
+msgid "Loading..."
+msgstr "Lade..."
+
+#: gui/mainmenu.py:28
+msgid "Start"
+msgstr "Start"
+
+#: gui/mainmenu.py:31
+msgid "Options"
+msgstr "Optionen"
+
+#: gui/mainmenu.py:34
+msgid "Quit"
+msgstr "Beenden"
+
+#: gui/optionsmenu.py:194 gui/optionsmenu.py:363
+msgid "Textspeed %0.1f%%"
+msgstr "Textgeschwindigkeit %0.1f%%"
+
+#: gui/optionsmenu.py:207
+msgid " Enable Particles"
+msgstr "Partikel Aktivieren"
+
+#: gui/optionsmenu.py:239 gui/optionsmenu.py:356
+msgid "Volume %d%%"
+msgstr "Lautstärke %d%%"
+
+#: gui/optionsmenu.py:258
+msgid "Mute Audio"
+msgstr "Stumm schalten"
+
+#: gui/optionsmenu.py:281
+msgid "Control type"
+msgstr "Steuerungsart"
+
+#: gui/optionsmenu.py:296 gui/optionsmenu.py:373
+msgid "Keyboard"
+msgstr "Tastatur"
+
+#: gui/optionsmenu.py:296 gui/optionsmenu.py:375
+msgid "Keyboard + Mouse"
+msgstr "Tastatur + Maus"
+
+#: gui/optionsmenu.py:323
+msgid "Back"
+msgstr "Zurück"
+
+#: level/level01.py:64
+msgid ""
+"First the highest, the second highest comes third and the lowest before the "
+"last."
+msgstr ""
+"Zuerst kommt die höchste, die zweithöchste kommt als drittes und die "
+"nidrigste vor der letzten."
+
+#: level/level01.py:65
+msgid ""
+"The second lowest is the first then lower, highest and finally the remaining."
+msgstr ""
+"Die Zweitniedrigste ist die erste dann niedriger, höchste und schließlich "
+"die letzte."
+
+#: level/level01.py:66
+msgid ""
+"Before the last comes the second lowest, the first is the second highest "
+"followed by the lowest."
+msgstr ""
+"Vor der letzten kommt die zweitniedrigste, die erste ist die Zweithöchste "
+"gefolgt von der niedrigsten."
+
+#: level/level01.py:355
+msgid ""
+"You who dare to undergo the test of kings, actiavate the lever to the left "
+"and enter."
+msgstr ""
+"Du der du es wagst dich dem Test der Könige zu unterziehen, aktiviere den "
+"Hebel zur linken und tritt ein."
+
+#: level/level01.py:356
+msgid ""
+"This room will test your mind. Your mind is important to make wise "
+"decissions for your people. To open the door you have to solve this riddle:\n"
+"\n"
+"\"%s\"\n"
+"\n"
+"The signs above the levers will guide you."
+msgstr ""
+"Dieser Raum wird deinen Verstand testen. Dein Verstand ist wichtig um weise "
+"entscheidungen für dein Folk zu treffen. Um die Türe zu öffnen, musst du "
+"dieses Rätsel lösen:\n"
+"\n"
+"\"%s\"\n"
+"\n"
+"Die Zeichen über den Schaltern werden dich leiten."
+
+#: level/level01.py:357
+msgid "The next door can only be opend with a key placed in this chamber."
+msgstr ""
+"Die nächste Türe kann nur mit einem Schlüssel aus dieser Kammer geöffnet "
+"werden."
+
+#: level/level01.py:358
+msgid ""
+"Be careful here, not to fall into the dangerous spikes. But go on without "
+"fear and you'll prove yourself to being able to guide your people throuh "
+"dangerous times.\n"
+"\n"
+"With the heartstones you can see here you can refil your health."
+msgstr ""
+"Sei vorsichtig, dass du nicht in die gefährlichen Stacheln fällst. Aber geh "
+"nur ohne Angst voran und erweise dich würdig dein Folk auch durch "
+"gefährliche Zeiten führen zu können.\n"
+"\n"
+"Mit den Herzsteinen die du hier siehst, kannst du deine Gesundheit wieder "
+"auffüllen."
+
+#: level/level01.py:359
+msgid ""
+"In the next chamber a ferocious enemy will await you defending the artifact. "
+"Defeate him and show that you'll be able to defend your people.\n"
+"\n"
+"To attack use the action key."
+msgstr ""
+"In der nächsten Kammer erwartet dich ein gefährlicher Gegner der das "
+"Artefkat beschützt. Besiege ihn und zeige, dass du fähig bist dein Gefolge "
+"zu beschützen.\n"
+"\n"
+"Zum Angreifen nutze die Aktionstaste."
+
+#: level/level01.py:360
+msgid ""
+"Finally you made it all the way through path of the kings. Open the chest, "
+"take the artifact and you'll be ready for becomming the next king."
+msgstr ""
+"Nun hast du es durch den Pfad der Könige geschaft. Öffne die Truhe und nimm "
+"das Artefakt an dich als Zeichen, dass du würdig bist der nächste Mayakönig "
+"zu werden."
+
+#: world.py:76
+msgid ""
+"Welcome to path of Kings, follow the signposts and try to survive this "
+"dungeon.\n"
+"move with the arrow keys or w a s d\n"
+"\n"
+"Good luck..."
+msgstr ""
+"Willkommen zum Pfad der Könige, folge den Schildern und versuche zu "
+"Überleben.\n"
+"Bewege dich mit den Pfeil tasten oder w a s d\n"
+"\n"
+"Viel Glück..."
+
+#~ msgid "Textspeed %0.1fx"
+#~ msgstr "Textgeschwindigkeit %0.1fx"

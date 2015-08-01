@@ -6,6 +6,9 @@ from gui.hud import PlayerHUD
 from gui.loadingscreen import LoadingScreen
 from gui.gameOverScreen import GameOverScreen
 from direct.showbase.DirectObject import DirectObject
+from direct.interval.LerpInterval import LerpFunc
+from direct.interval.IntervalGlobal import Sequence
+from direct.interval.FunctionInterval import Func
 import helper
 import time
 
@@ -27,9 +30,12 @@ class World(DirectObject):
 
         self.musicAmbient = loader.loadMusic("MayanJingle1_Ambient.ogg")
         self.musicAmbient.setLoop(True)
+        self.musicAmbient.setVolume(1.0)
         self.musicFight = loader.loadMusic("MayanJingle3_Fight.ogg")
         self.musicFight.setLoop(True)
+        self.musicFight.setVolume(1.0)
         self.musicGameOver = loader.loadMusic("MayanJingle5_GameOver.ogg")
+        self.musicGameOver.setVolume(1.0)
         self.puzzleSolved = loader.loadSfx("MayanJingle4_PuzzleSolved.ogg")
         self.getItem = loader.loadSfx("MayanJingle2_GetItem.ogg")
         self.loadingscreen.setLoadingValue(40)
@@ -46,7 +52,7 @@ class World(DirectObject):
         self.golem.start(self.level.getGolemStartPoint())
         self.loadingscreen.setLoadingValue(85)
 
-        self.playMusic("ambient")
+        self.playMusic("Ambient")
 
         # catch all events that go from one class to another within the world
         # NOTE: events that stay in one class can be catched in the class itself
@@ -73,7 +79,7 @@ class World(DirectObject):
         self.startTime = time.time()
         base.messenger.send(
             "showMessage",
-            ["Welcome to path of Kings, follow the signposts and try to survive this dungeon.\nmove with the arrow keys or w a s d\n\nGood luck..."])
+            [_("Welcome to path of Kings, follow the signposts and try to survive this dungeon.\nmove with the arrow keys or w a s d\n\nGood luck...")])
 
     def stop(self):
         helper.show_cursor()
@@ -95,21 +101,84 @@ class World(DirectObject):
         base.cTrav.clearColliders()
 
     def enterFight(self):
-        self.playMusic("fight")
+        self.playMusic("Fight")
         self.golem.activate(self.player.player)
 
     def exitFight(self):
+        self.playMusic("Ambient")
         self.level.defeatEnemy("Golem")
         self.player.exitFightMode()
 
+    def audioFade(self, volume, audio):
+        audio.setVolume(volume)
+
     def playMusic(self, music):
-        if music == "fight":
-            self.musicFight.play()
+        curMusic = None
+        nextMusic = None
+        # get the current running music
+        if self.musicAmbient.status() == self.musicAmbient.PLAYING:
+            curMusic = self.musicAmbient
+        if self.musicFight.status() == self.musicFight.PLAYING:
+            curMusic = self.musicFight
+        if self.musicGameOver.status() == self.musicGameOver.PLAYING:
+            curMusic = self.musicGameOver
+
+        # check which music we want to play next
+        if music == "Fight":
+            nextMusic = self.musicFight
+        elif music == "Ambient":
+            nextMusic = self.musicAmbient
+        elif music == "GameOver":
+            nextMusic = self.musicGameOver
         else:
-            self.musicAmbient.play()
+            # stop all music
+            self.musicFight.stop()
+            self.musicAmbient.stop()
+            self.musicGameOver.stop()
+
+        fade = None
+        if curMusic != None and nextMusic != None:
+            # fade from cur to next
+            # fade in the new music
+            lerpAudioFadeOut = LerpFunc(
+                self.audioFade,
+                fromData=1,
+                toData=0,
+                duration=1.0,
+                extraArgs=[curMusic])
+            lerpAudioFadeIn = LerpFunc(
+                self.audioFade,
+                fromData=0,
+                toData=1,
+                duration=1.0,
+                extraArgs=[nextMusic])
+            fade = Sequence(
+                lerpAudioFadeOut,
+                Func(curMusic.stop),
+                Func(nextMusic.play),
+                lerpAudioFadeIn,
+                name="FadeMusic"
+            )
+
+        elif nextMusic != None:
+            lerpAudioFadeIn = LerpFunc(
+                self.audioFade,
+                fromData = 0,
+                toData = 1,
+                duration = 1.0,
+                extraArgs = [nextMusic])
+            fade = Sequence(
+                Func(nextMusic.play),
+                lerpAudioFadeIn,
+                name="FadeMusic"
+            )
+        if fade != None:
+            fade.start()
 
     def gameOver(self, winLoose):
+        self.playMusic("GameOver")
         helper.show_cursor()
+        self.player.stop()
         self.endTime = time.time()
         self.gameoverscreen.show(winLoose, self.endTime - self.startTime)
 

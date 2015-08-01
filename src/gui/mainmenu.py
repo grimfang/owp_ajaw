@@ -22,16 +22,17 @@ class Menu(DirectObject):
             frameColor = (0, 0, 0, 0),
             sortOrder = 0)
         self.frameMain.setTransparency(1)
+        self.frameMain.setBin("fixed", 100)
 
         btnGeom = None
 
-        self.btnStart = self.createButton("Start", btnGeom, -0.5, self.btnStart_Click)
+        self.btnStart = self.createButton(_("Start"), btnGeom, -0.6, self.btnStart_Click)
         self.btnStart.reparentTo(self.frameMain)
 
-        self.btnOptions = self.createButton("Options", btnGeom, 0, self.btnOptions_Click)
+        self.btnOptions = self.createButton(_("Options"), btnGeom, 0, self.btnOptions_Click)
         self.btnOptions.reparentTo(self.frameMain)
 
-        self.btnQuit = self.createButton("Quit", btnGeom, 0.5, self.btnQuit_Click)
+        self.btnQuit = self.createButton(_("Quit"), btnGeom, 0.6, self.btnQuit_Click)
         self.btnQuit.reparentTo(self.frameMain)
 
         self.recalcAspectRatio(base.win)

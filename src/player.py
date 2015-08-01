@@ -1,4 +1,5 @@
 import random
+import math
 from direct.actor.Actor import Actor
 from direct.fsm.FSM import FSM
 from direct.showbase.DirectObject import DirectObject
@@ -20,10 +21,17 @@ from direct.interval.IntervalGlobal import Sequence
 from direct.interval.FunctionInterval import (
     Wait,
     Func)
+try:
+	import pygame
+except:
+	pass
 
 class Player(FSM, DirectObject):
     NormalMode = "Normal"
     FightMode = "Fight"
+
+    GAMEPADMODE = "Gamepad"
+    MOUSEANDKEYBOARD = "MouseAndKeyboard"
 
     def __init__(self):
         FSM.__init__(self, "FSM-Player")
@@ -44,16 +52,12 @@ class Player(FSM, DirectObject):
             "Fight_Left":"Character-FightLeft",
             "Fight_Right":"Character-FightRight"})
         self.player.setBlend(frameBlend = True)
-        # this variable will set an offset to the node the cam is attached to
-        # and the point the camera looks at. By default the camera will look
-        # directly at the node it is attached to
-        self.lookatOffset = Vec3(0, 0, 1.5)
         # the initial cam distance
         self.fightCamDistance = 3.0
         # the next two vars will set the min and max distance the cam can have
         # to the node it is attached to
         self.maxCamDistance = 4.0
-        self.minCamDistance = 0.8
+        self.minCamDistance = 1.2
         # the initial cam distance
         self.camDistance = (self.maxCamDistance - self.minCamDistance) / 2.0 + self.minCamDistance
         # the next two vars set the min and max distance on the Z-Axis to the
@@ -65,12 +69,25 @@ class Player(FSM, DirectObject):
         # an invisible object which will fly above the player and will be used to
         # track the camera on it
         self.camFloater = NodePath(PandaNode("playerCamFloater"))
-        self.camFloater.reparentTo(render)
+        self.camFloater.setPos(0, 0, 1.5)
+        self.camFloater.reparentTo(self.player)
+        # screen sizes
+        self.winXhalf = base.win.getXSize() / 2
+        self.winYhalf = base.win.getYSize() / 2
         # Interval for the jump animation
         self.jumpInterval = None
         self.jumpstartFloater = NodePath(PandaNode("jumpstartFloater"))
         self.jumpstartFloater.reparentTo(render)
         self.deathComplete = None
+        # Joystick/Gamepad support
+        self.hasJoystick = False
+        if gamepadSupport:
+            # initialize controls
+            joysticks = [pygame.joystick.Joystick(x) for x in range(pygame.joystick.get_count())]
+            if len(joysticks) > 0:
+                self.mainJoystick = joysticks[0]
+                self.mainJoystick.init()
+                self.hasJoystick = True
 
         #
         # WEAPONS AND ACCESSORIES
@@ -138,7 +155,7 @@ class Player(FSM, DirectObject):
         self.player.reparentTo(render)
         self.jumpstartFloater.setPos(self.player.getPos())
 
-        self.keyMap = {"left":0, "right":0, "forward":0, "backward":0, "center":0}
+        self.keyMap = {"horizontal":0, "vertical":0}
 
         self.health = 3
         self.trackedEnemy = None
@@ -149,37 +166,48 @@ class Player(FSM, DirectObject):
         # a time to keep the cam zoom at a specific speed independent of
         # current framerate
         self.camElapsed = 0.0
+        self.mouseSpeedX = 15.0 * base.mouseSensitivity
+        self.mouseSpeedY = 0.2 * base.mouseSensitivity
+        self.speed = 1.0
 
-        self.accept("arrow_left", self.setKey, ["left",1])
-        self.accept("arrow_right", self.setKey, ["right",1])
-        self.accept("arrow_up", self.setKey, ["forward",1])
-        self.accept("arrow_down", self.setKey, ["backward",1])
-        self.accept("arrow_left-up", self.setKey, ["left",0])
-        self.accept("arrow_right-up", self.setKey, ["right",0])
-        self.accept("arrow_up-up", self.setKey, ["forward",0])
-        self.accept("arrow_down-up", self.setKey, ["backward",0])
-        self.accept("a", self.setKey, ["left",1])
-        self.accept("d", self.setKey, ["right",1])
-        self.accept("w", self.setKey, ["forward",1])
-        self.accept("s", self.setKey, ["backward",1])
-        self.accept("a-up", self.setKey, ["left",0])
-        self.accept("d-up", self.setKey, ["right",0])
-        self.accept("w-up", self.setKey, ["forward",0])
-        self.accept("s-up", self.setKey, ["backward",0])
-        self.accept("q", self.setKey, ["center",1])
-        self.accept("q-up", self.setKey, ["center",0])
-        self.accept("home", self.setKey, ["center",1])
-        self.accept("home-up", self.setKey, ["center",0])
-        self.acceptOnce("+", self.zoom, [True])
-        self.acceptOnce("-", self.zoom, [False])
-        self.acceptOnce("enter", self.request, ["Action"])
-        self.acceptOnce("e", self.request, ["Action"])
+        self.camCenterEvents = ["centerCam", "home", "q"]
+        self.camZoomInEvents = ["zoomIn", "+", "wheel_up"]
+        self.camZoomOutEvents = ["zoomOut", "-", "wheel_down"]
+        self.actionEvents = ["doAction", "enter", "e"]
+
+        self.accept("arrow_left", self.setKey, ["horizontal",1])
+        self.accept("arrow_right", self.setKey, ["horizontal",-1])
+        self.accept("arrow_up", self.setKey, ["vertical",-1])
+        self.accept("arrow_down", self.setKey, ["vertical",1])
+        self.accept("arrow_left-up", self.setKey, ["horizontal",0])
+        self.accept("arrow_right-up", self.setKey, ["horizontal",0])
+        self.accept("arrow_up-up", self.setKey, ["vertical",0])
+        self.accept("arrow_down-up", self.setKey, ["vertical",0])
+        self.accept("a", self.setKey, ["horizontal",1])
+        self.accept("d", self.setKey, ["horizontal",-1])
+        self.accept("w", self.setKey, ["vertical",-1])
+        self.accept("s", self.setKey, ["vertical",1])
+        self.accept("a-up", self.setKey, ["horizontal",0])
+        self.accept("d-up", self.setKey, ["horizontal",0])
+        self.accept("w-up", self.setKey, ["vertical",0])
+        self.accept("s-up", self.setKey, ["vertical",0])
+        for event in self.camCenterEvents:
+            self.acceptOnce(event, self.center)
+        for event in self.camZoomInEvents:
+            self.acceptOnce(event, self.zoom, [True])
+        for event in self.camZoomOutEvents:
+            self.acceptOnce(event, self.zoom, [False])
+        for event in self.actionEvents:
+            self.acceptOnce(event, self.request, ["Action"])
         self.accept("ActionDone", self.request, ["Idle"])
 
         self.accept("playerJumpCollision-out", self.jump)
 
         taskMgr.add(self.move, "task_movement", priority=-10)
         taskMgr.add(self.updateCam, "task_camActualisation", priority=-4)
+
+        if self.hasJoystick:
+            taskMgr.add(self.gamepadLoop, "task_gamepad_loop", priority=-5)
 
         camera.setPos(self.player, 0, self.camDistance, self.camHeightAvg)
 
@@ -191,6 +219,7 @@ class Player(FSM, DirectObject):
     def stop(self):
         taskMgr.remove("task_movement")
         taskMgr.remove("task_camActualisation")
+        taskMgr.remove("task_gamepad_loop")
         self.ignoreAll()
         self.player.hide()
 
@@ -246,6 +275,37 @@ class Player(FSM, DirectObject):
         self.mode = Player.NormalMode
         base.messenger.send("ExitFightMode")
 
+    def gamepadLoop(self, task):
+        joymap = {
+            0:"doAction",
+            5:"centerCam",
+            6:"zoomIn",
+            4:"zoomOut",
+            9:"escape"}
+        for event in pygame.event.get():
+            for button in range(self.mainJoystick.get_numbuttons()):
+                if button in joymap and self.mainJoystick.get_button(button):
+                    base.messenger.send(joymap[button])
+            if event.type == pygame.JOYAXISMOTION:
+                for axis in range(self.mainJoystick.get_numaxes()):
+                    axisChange = 0.0
+                    axisChange = self.mainJoystick.get_axis(axis)
+                    if axis == 0:
+                        self.setKey("horizontal", -axisChange)
+                    if axis == 1:
+                        self.setKey("vertical", axisChange)
+        return task.cont
+
+    def setAnimationSpeed(self, requestedState):
+        if requestedState == "Run":
+            self.player.setPlayRate(3 * self.speed, "Run")
+        elif requestedState == "RunReverse":
+            self.player.setPlayRate(-3 * self.speed, "Run")
+        elif requestedState == "FightLeft":
+            self.player.setPlayRate(2 * self.speed, "Fight_Left")
+        elif requestedState == "FightRight":
+            self.player.setPlayRate(2 * self.speed, "Fight_Right")
+
     #
     # MOVE FUNCTIONS
     #
@@ -254,17 +314,28 @@ class Player(FSM, DirectObject):
 
     def move(self, task):
         dt = globalClock.getDt()
+        resetMouse = False
+
+        def resetMouse():
+            if base.controlType == Player.MOUSEANDKEYBOARD:
+                base.win.movePointer(0, self.winXhalf, self.winYhalf)
+
         if self.player.getAnimControl("Hit").isPlaying() or \
             self.player.getAnimControl("Death").isPlaying():
+            resetMouse()
             return task.cont
         if self.deathComplete is not None:
             if self.deathComplete.isPlaying():
+                resetMouse()
                 return task.cont
         if self.jumpInterval is not None:
             if self.jumpInterval.isPlaying():
+                resetMouse()
                 return task.cont
         if self.isActionmove:
+            resetMouse()
             return task.cont
+
         if self.mode == Player.NormalMode:
             self.__normalMove(dt)
         else:
@@ -273,40 +344,71 @@ class Player(FSM, DirectObject):
 
     def __normalMove(self, dt):
         requestState = "Idle"
-        if self.keyMap["left"] != 0:
-            self.player.setH(self.player.getH() + 150 * dt)
+        move = False
+        if self.keyMap["horizontal"] != 0:
             requestState = "Run"
-        if self.keyMap["right"] != 0:
-            self.player.setH(self.player.getH() - 150 * dt)
+            move = True
+        if self.keyMap["vertical"] != 0:
             requestState = "Run"
-        if self.keyMap["forward"] != 0:
-            self.player.setY(self.player, -2 * dt)
-            requestState = "Run"
-        if self.keyMap["backward"] != 0:
-            self.player.setY(self.player, 2 * dt)
-            requestState = "RunReverse"
+            move = True
+        if move and base.controlType == Player.GAMEPADMODE:
+                movementVec = Vec3(
+                    self.keyMap["horizontal"],
+                    self.keyMap["vertical"],
+                    0)
+                self.speed = max(abs(self.keyMap["horizontal"]), abs(self.keyMap["vertical"]))
+                angle = math.atan2(-movementVec.getX(), movementVec.getY())
+                rotation = angle * (180.0/math.pi)
+                self.player.setH(camera, rotation)
+                self.player.setP(0)
+                self.player.setR(0)
+                self.player.setPos(self.player,(0, -2 * self.speed * dt, 0))
+        elif base.controlType == Player.MOUSEANDKEYBOARD:
+            if not base.mouseWatcherNode.hasMouse(): return
+            self.pointer = base.win.getPointer(0)
+            mouseX = self.pointer.getX()
+            mouseY = self.pointer.getY()
+
+            if base.win.movePointer(0, self.winXhalf, self.winYhalf):
+                z = camera.getZ() + (mouseY - self.winYhalf) * self.mouseSpeedY * dt
+                camera.setZ(z)
+
+                h = self.player.getH() - (mouseX - self.winXhalf) * self.mouseSpeedX * dt
+                if h <-360:
+                    h = 360
+                elif h > 360:
+                    h = -360
+                self.player.setH(h)
+                if move:
+                    self.player.setPos(self.player,(
+                        2*dt*self.keyMap["horizontal"],
+                        2*dt*self.keyMap["vertical"],
+                        0))
+                self.center()
         if self.state != requestState:
             self.request(requestState)
+        self.setAnimationSpeed(requestState)
 
     def __fightMove(self, dt):
         if self.trackedEnemy == None: return
         requestState = "Idle"
         self.player.lookAt(self.trackedEnemy)
         self.player.setH(self.player, 180)
-        if self.keyMap["left"] != 0:
-            self.player.setX(self.player, 2 * dt)
+        if self.keyMap["horizontal"] > 0:
+            self.player.setX(self.player, 2 * self.speed * dt)
             requestState = "FightLeft"
-        elif self.keyMap["right"] != 0:
-            self.player.setX(self.player, -2 * dt)
+        elif self.keyMap["horizontal"] < 0:
+            self.player.setX(self.player, -2 * self.speed * dt)
             requestState = "FightRight"
-        elif self.keyMap["forward"] != 0:
-            self.player.setY(self.player, -2 * dt)
+        elif self.keyMap["vertical"] < 0:
+            self.player.setY(self.player, -2 * self.speed * dt)
             requestState = "Run"
-        elif self.keyMap["backward"] != 0:
-            self.player.setY(self.player, 2 * dt)
+        elif self.keyMap["vertical"] > 0:
+            self.player.setY(self.player, 2 * self.speed * dt)
             requestState = "RunReverse"
         if self.state != requestState:
             self.request(requestState)
+        self.setAnimationSpeed(requestState)
 
     def jump(self, extraArg):
         intoName = extraArg.getIntoNode().getName().lower()
@@ -338,14 +440,35 @@ class Player(FSM, DirectObject):
         return task.cont
 
     def zoom(self, zoomIn):
+
+        # Camera Movement Updates
+        camvec = self.player.getPos() - camera.getPos()
+        camvec.setZ(0)
+        camdist = camvec.length()
+
+        zoom = 0
         if zoomIn:
-            if self.maxCamDistance > self.minCamDistance:
-                self.maxCamDistance = self.maxCamDistance - 0.5
-            self.acceptOnce("+", self.zoom, [True])
+            if camdist > self.minCamDistance + 0.5:
+                zoom = 0.5
+            for event in self.camZoomInEvents:
+                self.acceptOnce(event, self.zoom, [True])
         else:
-            if self.maxCamDistance < 15: # 15 is the default maximum
-                self.maxCamDistance = self.maxCamDistance + 0.5
-            self.acceptOnce("-", self.zoom, [False])
+            if camdist < self.maxCamDistance - 0.5:
+                zoom = -0.5
+            for event in self.camZoomOutEvents:
+                self.acceptOnce(event, self.zoom, [False])
+        camera.setPos(camera, 0, zoom, 0)
+
+    def center(self):
+        # Camera Movement Updates
+        camvec = self.player.getPos() - camera.getPos()
+        camvec.setZ(0)
+        camdist = camvec.length()
+        # get the cameras current offset to the player model on the z-axis
+        offsetZ = camera.getZ() - self.player.getZ()
+        camera.setPos(self.player, 0, camdist, offsetZ)
+        for event in self.camCenterEvents:
+            self.acceptOnce(event, self.center)
 
     def __normalCam(self):
         """This function will check the min and max distance of the camera to
@@ -378,7 +501,7 @@ class Player(FSM, DirectObject):
             camera.setZ(self.player.getZ() + self.maxCamHeightDist)
             offsetZ = self.maxCamHeightDist
 
-        if offsetZ != self.camHeightAvg:
+        if offsetZ != self.camHeightAvg and not base.controlType == Player.MOUSEANDKEYBOARD:
             # if we are not moving up or down, set the cam to an average position
             if offsetZ != self.camHeightAvg:
                 if offsetZ > self.camHeightAvg:
@@ -400,14 +523,7 @@ class Player(FSM, DirectObject):
                         # set the cam z position to exactly the desired offset
                         camera.setZ(self.player.getZ() + self.camHeightAvg)
 
-        if self.keyMap["center"]:
-            camera.setPos(self.player, 0, camdist, offsetZ)
-
-        self.camFloater.setPos(self.player.getPos())
-        self.camFloater.setX(self.player.getX() + self.lookatOffset.getX())
-        self.camFloater.setY(self.player.getY() + self.lookatOffset.getY())
-        self.camFloater.setZ(self.player.getZ() + self.lookatOffset.getZ())
-        camera.lookAt(self.camFloater)#self.player)
+        camera.lookAt(self.camFloater)
 
     def __fightCam(self):
         """This function will check the min and max distance of the camera to
@@ -416,11 +532,6 @@ class Player(FSM, DirectObject):
         camera.setX(self.player, 0)
         camera.setY(self.player, self.fightCamDistance)
         camera.setZ(0.5)
-
-        self.camFloater.setPos(self.trackedEnemy.getPos())
-        self.camFloater.setX(self.trackedEnemy.getX() + self.lookatOffset.getX())
-        self.camFloater.setY(self.trackedEnemy.getY() + self.lookatOffset.getY())
-        self.camFloater.setZ(self.trackedEnemy.getZ() + self.lookatOffset.getZ())
 
         camera.lookAt(self.camFloater)
 
@@ -436,12 +547,10 @@ class Player(FSM, DirectObject):
             self.footstep.stop()
 
     def enterRun(self):
-        self.player.setPlayRate(3, "Run")
         self.player.loop("Run")
         self.footstep.play()
 
     def enterRunReverse(self):
-        self.player.setPlayRate(-3, "Run")
         self.player.loop("Run")
         self.footstep.play()
 
@@ -459,12 +568,13 @@ class Player(FSM, DirectObject):
 
     def __exitAction(self):
         self.isActionmove = False
-        self.acceptOnce("enter", self.request, ["Action"])
-        self.acceptOnce("e", self.request, ["Action"])
+        for event in self.actionEvents:
+            self.acceptOnce(event, self.request, ["Action"])
 
     def __enterActivate(self):
-        self.player.setPlayRate(2, "Activate")
-        activateAnim = self.player.actorInterval("Activate")
+        activateAnim = self.player.actorInterval(
+            "Activate",
+            playRate=3)
         activateAnim.setDoneEvent("ActionDone")
         activateAnim.start()
         base.messenger.send("Player_Activate")
@@ -496,9 +606,9 @@ class Player(FSM, DirectObject):
         self.footstep.stop()
 
     def __enterFightAttack(self):
-        self.player.setPlayRate(2, "Fight_Attack")
-        #self.player.play("Fight_Attack")
-        attackAnim = self.player.actorInterval("Fight_Attack")
+        attackAnim = self.player.actorInterval(
+            "Fight_Attack",
+            playRate=3)
         attackAnim.setDoneEvent("ActionDone")
         attackAnim.start()
         self.spearAttackSfx.play()
@@ -511,11 +621,9 @@ class Player(FSM, DirectObject):
         self.footstep.stop()
 
     def enterFightLeft(self):
-        self.player.setPlayRate(2, "Fight_Left")
         self.player.loop("Fight_Left")
         self.footstep.play()
 
     def enterFightRight(self):
-        self.player.setPlayRate(2, "Fight_Right")
         self.player.loop("Fight_Right")
         self.footstep.play()

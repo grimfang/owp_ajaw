@@ -25,7 +25,7 @@ class LoadingScreen():
             scale = 0.25,
             pos = (0, 0, 0),
             frameColor = (0, 0, 0, 0),
-            text = "Loading...",
+            text = _("Loading..."),
             text_align = TextNode.ACenter,
             text_fg = (1,1,1,1))
         self.lblLoading.reparentTo(self.frameMain)

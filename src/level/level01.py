@@ -60,10 +60,12 @@ class Level01(DirectObject):
             "ORDER1":"Boulder_Door",
             "Switch.005":"Boulder_Door.002"}
         self.switchOrderLogic = {}
+        # possible switch activation orders
         self.switchOrders = [
-            ["First the highest, the second comes third and the lowest before the last.",[2,3,4,1]],
-            ["The second lowest is the first then lower highest higher.",[2,1,4,3]],
-            ["Before the last comes the second lowest, the first is the second highest followed by the lowest.",[2,3,1,4]]]
+            [_("First the highest, the second highest comes third and the lowest before the last."),[4,1,3,2]],
+            [_("The second lowest is the first then lower, highest and finally the remaining."),[2,1,4,3]],
+            [_("Before the last comes the second lowest, the first is the second highest followed by the lowest."),[3,1,2,4]]
+            ]
         self.enemyLogic = {"Golem":"Wooden_Door_Basic.001"}
         self.KeyDoorLogic = ["Boulder_Door.001"]
         self.chestLogic = {
@@ -96,7 +98,7 @@ class Level01(DirectObject):
 
     def initTorchParticles(self):
         torchTops = self.level.findAllMatches("**/TorchTop*")
-        fxList = ['../assets/TorchSmoke.ptf', '../assets/TorchFire.ptf']
+        fxList = ['TorchSmoke.ptf', 'TorchFire.ptf']
         for torch in torchTops:
             for fx in fxList:
                 p = ParticleEffect()
@@ -106,12 +108,14 @@ class Level01(DirectObject):
 
     def initLights(self):
         torches = self.level.findAllMatches("**/TorchTop*")
+        self.lights = []
         for torch in torches:
             tLight = PointLight(torch.getName())
             tLight.setColor((.4, .2, .0, 1))
             tlnp = render.attachNewNode(tLight)
             tlnp.setPos(torch.getPos(render))
             render.setLight(tlnp)
+            self.lights.append(tlnp)
 
         windows = self.level.findAllMatches("**/Window*")
         plates = self.level.findAllMatches("**/Plate*")
@@ -126,6 +130,7 @@ class Level01(DirectObject):
             wlnp.lookAt((0, window.getY(), 0))
             for plate in plates:
                 plate.setLight(wlnp)
+            self.lights.append(wlnp)
 
         ambientLight = AmbientLight("ambientLight")
         ambientLight.setColor((.1, .1, .025, 1))
@@ -340,6 +345,7 @@ class Level01(DirectObject):
         for i in range(4):
             for switch, value in self.switchControls.iteritems():
                 if self.switchOrderLogic.get("ORDER1")[i] in switch.getParent().getName():
+                    print "append", signlist[i], "to", self.switchOrderLogic.get("ORDER1")[i]
                     pos = switch.getPos(render)
                     pos.setZ(pos.getZ() + 1.0)
                     self.switchSigns[signlist[i]].setPos(pos)
@@ -349,14 +355,16 @@ class Level01(DirectObject):
         # SETUP THE SIGN TEXTS
         #
         self.signTexts = {
-            "Signpost.000":"You who dare to undergo the test of kings, actiavate the lever to the left and enter.",
-            "Signpost.001":"This room will test your mind. Your mind is important to make wise decissions for your people. To open the door you have to solve this riddle:\n\n\"%s\"\n\nThe signs above the levers will guide you." % self.order1[0],
-            "Signpost.002":"The next door can only be opend with a key placed in this chamber.",
-            "Signpost.003":"Be careful here, not to fall into the dangerous spikes. But go on without fear and you'll prove yourself to being able to guide your people throuh dangerous times.\n\nWith the heartstones you can see here you can refil your health.",
-            "Signpost.004":"In the next chamber a ferocious enemy will await you defending the artifact. Defeate him and show that you'll be able to defend your people.\n\nTo attack use the action key.",
-            "Signpost.005":"Finally you made it all the way through path of the kings. Open the chest, take the artefact and you'll be ready for becomming the next king."}
+            "Signpost.000":_("You who dare to undergo the test of kings, actiavate the lever to the left and enter."),
+            "Signpost.001":_("This room will test your mind. Your mind is important to make wise decissions for your people. To open the door you have to solve this riddle:\n\n\"%s\"\n\nThe signs above the levers will guide you.") % self.order1[0],
+            "Signpost.002":_("The next door can only be opend with a key placed in this chamber."),
+            "Signpost.003":_("Be careful here, not to fall into the dangerous spikes. But go on without fear and you'll prove yourself to being able to guide your people throuh dangerous times.\n\nWith the heartstones you can see here you can refil your health."),
+            "Signpost.004":_("In the next chamber a ferocious enemy will await you defending the artifact. Defeate him and show that you'll be able to defend your people.\n\nTo attack use the action key."),
+            "Signpost.005":_("Finally you made it all the way through path of the kings. Open the chest, take the artifact and you'll be ready for becomming the next king.")}
 
     def stop(self):
+        render.clearLight()
+        self.level.clearLight()
         self.level.removeNode()
 
     def getPlayerStartPoint(self):
@@ -383,15 +391,42 @@ class Level01(DirectObject):
             #["Display text", "sort order (1 based integer list)", "additional content..."]
             orderCorrect = True
             orderDone = True
-            for switchname in self.switchOrderLogic[self.switchLogic[self.activeSwitch]]:
+            print self.activeSwitch
+            print "order1", self.order1
+            orderBySwitch = self.switchOrderLogic[self.switchLogic[self.activeSwitch]]
+            print "order by switch", orderBySwitch
+
+            correctOrder = {}
+            # go through all switches by the order logic using 0-based integers
+            for i in range(len(orderBySwitch)):
+                # map index orders to switch names
+                correctOrder.setdefault(self.order1[1][i], orderBySwitch[i])
+
+            print "CORRECT ORDER:", correctOrder
+
+            for i in range(len(correctOrder)):
+                hasToBeActivatedSwitch = correctOrder[i+1]
+                if hasToBeActivatedSwitch == self.activeSwitch: break
+                for key, value in self.switchControls.iteritems():
+                    if hasToBeActivatedSwitch == key.getParent().getName():
+                        if value[0].getFrame() == 0:
+                            print "order incorrect"
+                            orderCorrect = False
+                        break
+                if orderCorrect == False: break
+
+            '''for switchname in self.switchOrderLogic[self.switchLogic[self.activeSwitch]]:
                 if switchname == self.activeSwitch: break
+                print "check:", switchname
                 # check if earlier switches have been activated already
                 for key, value in self.switchControls.iteritems():
                     if switchname == key.getParent().getName():
-                        if value[0].getFrame() == 0: orderCorrect = False
+                        if value[0].getFrame() == 0:
+                            print "order incorrect"
+                            orderCorrect = False
                         break
                 if orderCorrect == False:
-                    break
+                    break'''
             # check if all switches have successfully been activated
             for switchname in self.switchOrderLogic[self.switchLogic[self.activeSwitch]]:
                 for key, value in self.switchControls.iteritems():
