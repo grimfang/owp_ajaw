@@ -1,0 +1,32 @@
+Sign1:
+	You who dare to undergo the test of kings, actiavate the lever to the left and enter.
+Sign2:
+	This room will test your mind. Your mind is important to make wise decissions for you people.
+	
+	To open the door you have to activate the levers in correct order.
+	Options:
+		First the highest, the second comes third and the lowest before the last. (e.g. 4 1 2 3)
+		The second lowest is the first then lower highest higher (e.g. 2 1 4 3)
+		Before the the last comes the second lowest, the first is the second highers followed by the lowest (e.g. 3 1 2 4 )
+	The signs above them will guide you.
+	
+Example for the full puzzle:
+	The 1. switch has the mayan sign for number 7
+	The 2. switch has 4
+	The 3. switch 0
+	The 4. switch 1
+	and they have to be activated in the following order:
+	Before the the last comes the second lowest, the first is the second highers followed by the lowest.
+	Then it has to be solved as follow:
+		1. is switch 2 with number 4 attached
+		2. is switch 3 with number 0 attached
+		3. is switch 4 with number 1 attached
+		4. is switch 1 with number 7 attached
+Sign3:
+	The next door can only be opend with a key placed in this chamber.
+Sign4:
+	Be careful here, not to fall into the dangerous spikes. But go on without fear and you'll prove yourself to being able to guide your people throuh dangerous times.
+Sign5:
+	In the next chamber a ferocious enemy will await you defending the artifact. Defeate him and show that you'll be able to defend your people.
+Sign6:
+	Finally you made it all the way through path of the kings. Open the chest, take the artefact and you'll be ready for becomming the next king.
